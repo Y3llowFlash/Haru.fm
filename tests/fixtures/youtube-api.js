@@ -13,8 +13,8 @@ window.YT = { Player: class {
     if (!window.__holdPlayerReady) setTimeout(() => options.events.onReady({ target: this }), 0);
   }
   state(code) { this.options.events.onStateChange({ target: this, data: code }); }
-  cueVideoById(source) { this.id = source.videoId; this.time = source.startSeconds || 0; this.list = []; this.index = -1; window.__haruCalls.push(['cueVideo', this.id]); this.state(5); }
-  cuePlaylist(source) { this.list = ['jfKfPfyJRdk', '5qap5aO4i9A', 'DWcJFNfaw9c']; this.index = source.index || 0; this.id = this.list[this.index]; this.time = 0; window.__haruCalls.push(['cuePlaylist', this.index, source.list]); this.state(5); }
+  cueVideoById(source) { this.id = source.videoId; this.time = source.startSeconds || 0; this.list = []; this.index = -1; window.__haruCalls.push(['cueVideo', this.id]); if (window.__holdCueState) window.__completeCue = () => this.state(5); else this.state(5); }
+  cuePlaylist(source) { this.list = ['jfKfPfyJRdk', '5qap5aO4i9A', 'DWcJFNfaw9c']; this.index = source.index || 0; this.id = this.list[this.index]; this.time = 0; window.__haruCalls.push(['cuePlaylist', this.index, source.list]); if (window.__holdCueState) window.__completeCue = () => this.state(5); else this.state(5); }
   playVideo() { window.__haruCalls.push(['play']); this.state(1); }
   pauseVideo() { window.__haruCalls.push(['pause']); this.state(2); }
   seekTo(value) { this.time = value; window.__haruCalls.push(['seek', value]); }

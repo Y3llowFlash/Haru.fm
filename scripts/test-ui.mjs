@@ -34,8 +34,12 @@ try {
   await input.fill('https://youtube.com.attacker.test/watch?v=jfKfPfyJRdk');
   await page.getByRole('button', { name: 'Load', exact: true }).click();
   check((await page.getByRole('alert').innerText()).includes('Use a link'), 'rejects deceptive YouTube links');
+  await page.evaluate(() => { window.__holdCueState = true; });
   await input.fill('https://youtu.be/jfKfPfyJRdk?t=30');
   await page.getByRole('button', { name: 'Load', exact: true }).click();
+  await page.waitForFunction(() => window.__completeCue);
+  check(await page.getByRole('button', { name: 'Play', exact: true }).isDisabled(), 'Play waits for the actual video cue, not only iframe readiness');
+  await page.evaluate(() => { window.__holdCueState = false; window.__completeCue(); });
   await page.waitForFunction(() => !document.querySelector('.play-button').disabled);
   check(await page.getByRole('button', { name: 'Next track', exact: true }).isDisabled(), 'single videos do not offer an unrelated next track');
   check(await page.evaluate(() => window.__haruCalls.some(([type]) => type === 'cueVideo') && !window.__haruCalls.some(([type]) => type === 'play')), 'loads without autoplay');

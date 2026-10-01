@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, appendFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { _electron } from 'playwright';
@@ -58,10 +58,19 @@ try {
   process.exitCode = 1;
 } finally {
   if (page) {
+    report.rendererState = await page.evaluate(() => ({
+      hidden: document.hidden,
+      monitor: document.querySelector('.monitor-label')?.textContent,
+      time: document.querySelector('.time-display')?.textContent,
+      frame: document.querySelector('.player-host iframe')?.outerHTML,
+    })).catch(() => null);
     report.playerMessage = await page.locator('.message').textContent().catch(() => '');
     await page.screenshot({ path: path.join(output, 'live-player.png'), fullPage: true }).catch(() => {});
   }
   await writeFile(path.join(output, 'live-player.json'), JSON.stringify(report, null, 2));
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    await appendFile(process.env.GITHUB_STEP_SUMMARY, `## Live YouTube playback: ${report.status}\n\n${report.checks.map(item => `- ${item}`).join('\n')}\n\n${report.error ? `Failure: ${report.error}\n\n` : ''}${report.limitation}\n`);
+  }
   await app?.close();
   await rm(userData, { recursive: true, force: true });
 }

@@ -16,6 +16,8 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
   const audioSettlingUntil = useRef(0);
   const instanceGeneration = useRef(0);
   const readyRef = useRef(false);
+  const sourceReadyRef = useRef(false);
+  const cueWaitRef = useRef(null);
   const rejectReadyRef = useRef(null);
   const visibilityRef = useRef(true);
   const nativeVisibilityRef = useRef(true);
@@ -52,7 +54,7 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
         const index = playlist.indexOf(desired);
         if (index >= 0 && index !== playlistIndex) {
           player.cuePlaylist({ listType: 'playlist', list: sourceRef.current.playlistId, index, startSeconds: sourceRef.current.startSeconds });
-          return;
+          return false;
         }
       }
       update({
@@ -61,6 +63,7 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
         duration: Math.max(0, player.getDuration() || 0),
         playlist, playlistIndex,
       });
+      return true;
     } catch { /* The embedded frame can briefly be unavailable while changing videos. */ }
   }, [update]);
 
@@ -110,11 +113,28 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
               const iframe = event.target.getIframe();
               iframe.title = 'YouTube video player';
               iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-              update({ ready: true });
               resolve(event.target);
             },
             onStateChange(event) {
               if (!isCurrent(event.target)) return;
+              if (cueWaitRef.current) {
+                // The real API cues asynchronously. Its ready event only means
+                // the frame exists; Play must wait for the requested video.
+                if (event.data !== 5) { if (event.data === 1) event.target.pauseVideo(); return; }
+                if (!sync()) return;
+                const pending = cueWaitRef.current;
+                if (pending.source.kind === 'video') {
+                  try { if (new URL(event.target.getVideoUrl()).searchParams.get('v') !== pending.source.videoId) return; }
+                  catch { return; }
+                } else if (!event.target.getPlaylist()?.length) return;
+                clearTimeout(pending.timeout);
+                cueWaitRef.current = null;
+                sourceReadyRef.current = true;
+                update({ ready: true, status: 'cued', error: '' });
+                pending.resolve(true);
+                return;
+              }
+              if (!sourceReadyRef.current) return;
               const status = states[event.data] || 'loading';
               if (event.data === 1 && (!visibilityRef.current || !nativeVisibilityRef.current || document.hidden)) { event.target.pauseVideo(); return; }
               update({ status, error: '' });
@@ -124,6 +144,12 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
               if (!isCurrent(event.target)) return;
               const message = playerErrorMessage(event.data);
               update({ status: 'error', error: message });
+              const pending = cueWaitRef.current;
+              if (pending) {
+                clearTimeout(pending.timeout);
+                cueWaitRef.current = null;
+                pending.reject(new Error(message));
+              }
               if (!readyRef.current) rejectReady(new Error(message));
             },
             onAutoplayBlocked(event) { if (isCurrent(event.target)) update({ status: 'cued', error: 'Press Play, or use the play button inside the YouTube video.' }); },
@@ -136,35 +162,45 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
 
   const load = useCallback(async (source) => {
     const request = ++generation.current;
+    const previous = cueWaitRef.current;
+    if (previous) { clearTimeout(previous.timeout); cueWaitRef.current = null; previous.reject(new Error('A different link was loaded.')); }
+    sourceReadyRef.current = false;
     sourceRef.current = source;
     pendingPlaylistVideo.current = source.kind === 'playlist' && source.videoId && source.index === 0 ? source.videoId : null;
-    update({ status: 'loading', error: '', currentTime: 0, duration: 0, videoId: source.videoId || null, playlist: [], playlistIndex: -1 });
+    update({ status: 'loading', ready: false, error: '', currentTime: 0, duration: 0, videoId: source.videoId || null, playlist: [], playlistIndex: -1 });
     try {
       const player = await ensurePlayer();
       if (request !== generation.current || !mounted.current) return false;
-      if (source.kind === 'playlist') player.cuePlaylist({ listType: 'playlist', list: source.playlistId, index: source.index, startSeconds: source.startSeconds });
-      else player.cueVideoById({ videoId: source.videoId, startSeconds: source.startSeconds });
-      update({ ready: true, status: 'cued' });
-      return true;
+      return await new Promise((resolve, reject) => {
+        const pending = { source, resolve, reject, timeout: setTimeout(() => {
+          if (cueWaitRef.current === pending) cueWaitRef.current = null;
+          reject(new Error('YouTube did not prepare this video or playlist. Check the link and try again.'));
+        }, 20000) };
+        cueWaitRef.current = pending;
+        try {
+          if (source.kind === 'playlist') player.cuePlaylist({ listType: 'playlist', list: source.playlistId, index: source.index, startSeconds: source.startSeconds });
+          else player.cueVideoById({ videoId: source.videoId, startSeconds: source.startSeconds });
+        } catch (error) { clearTimeout(pending.timeout); cueWaitRef.current = null; reject(error); }
+      });
     } catch (error) {
-      if (request === generation.current) update({ status: 'error', error: error.message, ready: readyRef.current });
+      if (request === generation.current) update({ status: 'error', error: error.message, ready: sourceReadyRef.current });
       return false;
     }
   }, [ensurePlayer, update]);
 
   const play = useCallback(() => {
-    if (!readyRef.current || !visibilityRef.current || !nativeVisibilityRef.current || document.hidden) return;
+    if (!readyRef.current || !sourceReadyRef.current || !visibilityRef.current || !nativeVisibilityRef.current || document.hidden) return;
     update({ error: '' });
     playerRef.current.playVideo();
   }, [update]);
   const seek = useCallback((seconds) => {
-    if (!readyRef.current || !Number.isFinite(seconds)) return;
+    if (!readyRef.current || !sourceReadyRef.current || !Number.isFinite(seconds)) return;
     playerRef.current.seekTo(Math.max(0, Math.min(seconds, playerRef.current.getDuration() || 0)), true);
     sync();
   }, [sync]);
-  const next = useCallback(() => { if (readyRef.current && sourceRef.current?.kind === 'playlist' && playerRef.current.getPlaylist()?.length) { update({ error: '' }); playerRef.current.nextVideo(); } }, [update]);
+  const next = useCallback(() => { if (readyRef.current && sourceReadyRef.current && sourceRef.current?.kind === 'playlist' && playerRef.current.getPlaylist()?.length) { update({ error: '' }); playerRef.current.nextVideo(); } }, [update]);
   const previous = useCallback(() => {
-    if (!readyRef.current) return;
+    if (!readyRef.current || !sourceReadyRef.current) return;
     if (playerRef.current.getCurrentTime() > 3 || sourceRef.current?.kind !== 'playlist' || !playerRef.current.getPlaylist()?.length) seek(0);
     else playerRef.current.previousVideo();
   }, [seek]);
@@ -200,6 +236,9 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
       rejectReadyRef.current?.(new Error('Player closed.'));
       rejectReadyRef.current = null;
       readyRef.current = false;
+      sourceReadyRef.current = false;
+      const pending = cueWaitRef.current;
+      if (pending) { clearTimeout(pending.timeout); cueWaitRef.current = null; pending.reject(new Error('Player closed.')); }
       playerRef.current?.destroy();
       playerRef.current = null;
       initializationRef.current = null;
