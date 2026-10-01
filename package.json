@@ -18,8 +18,8 @@
     "test": "node --test tests/*.test.mjs",
     "check": "npm test && npm run build && npm run test:ui",
     "start": "electron .",
-    "pack": "npm run build && electron-builder --dir",
-    "dist:win": "npm run build && electron-builder --win --x64",
+    "pack": "npm run build && electron-builder --dir --publish never",
+    "dist:win": "npm run build && electron-builder --win --x64 --publish never",
     "test:ui": "node scripts/test-ui.mjs"
   },
   "dependencies": {
