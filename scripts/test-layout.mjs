@@ -15,6 +15,16 @@ const args = [...(headless ? ['--headless', '--ozone-platform=headless'] : []), 
 const sizes = [[420, 540], [440, 570], [500, 700], [500, 720], [500, 880], [720, 540], [760, 760], [800, 540], [1000, 600], [420, 1000]];
 let app;
 let checks = 0;
+let nativePerCssPixel = 1;
+
+async function resize(page, width, height) {
+  await app.evaluate(({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0].setContentSize(...size), [Math.round(width * nativePerCssPixel), Math.round(height * nativePerCssPixel)]);
+  // Native DIP sizes can round by one CSS pixel at fractional display scales.
+  await page.waitForFunction(([w, h]) => Math.abs(innerWidth - w) <= 1 && Math.abs(innerHeight - h) <= 1, [width, height], { timeout: 5000 }).catch(async error => {
+    console.error('Resize geometry:', await page.evaluate(() => ({ width: innerWidth, height: innerHeight, deviceScale: devicePixelRatio })), await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentBounds()));
+    throw error;
+  });
+}
 
 async function inspect(page, mode, label) {
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -42,6 +52,12 @@ try {
   app = await _electron.launch({ args, cwd: root, env: { ...process.env, HARU_QA_USER_DATA: userData }, timeout: 30000 });
   const page = await app.firstWindow();
   await page.waitForFunction(() => document.querySelector('#youtube-link')?.disabled === false);
+  // Forced Chromium scaling may differ from the host Windows display's native
+  // DIP scale. Calibrate the native client size to the renderer's CSS pixels.
+  const nativeWidth = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentSize()[0]);
+  const cssWidth = await page.evaluate(() => innerWidth);
+  nativePerCssPixel = nativeWidth / cssWidth;
+  console.log('Display sizing:', { nativeWidth, cssWidth, nativePerCssPixel, deviceScale: await page.evaluate(() => devicePixelRatio) });
   await app.evaluate(({ ipcMain }) => {
     ipcMain.removeHandler('haru:metadata');
     ipcMain.handle('haru:metadata', () => ({ title: 'Mossberg Arki — တဝဲလည်လည် သီချင်းခေါင်းစဉ် · A very long music title for resizing', author: 'A channel name that must fit in a small player window' }));
@@ -55,17 +71,14 @@ try {
   for (const mode of ['cozy', 'mini']) {
     if (mode === 'mini') { await page.getByRole('button', { name: 'Switch to Mini Mode', exact: true }).click(); await page.waitForSelector('.app-window.mini'); }
     for (const [width, height] of sizes) {
-      await app.evaluate(({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0].setContentSize(...size), [width, height]);
-      // Native DIP sizes can round by one CSS pixel at fractional display scales.
-      await page.waitForFunction(([w, h]) => Math.abs(innerWidth - w) <= 1 && Math.abs(innerHeight - h) <= 1, [width, height]);
+      await resize(page, width, height);
       await inspect(page, mode, `${width}x${height}`);
       assert.ok(await page.locator('.app-window').evaluate(node => node.classList.contains('is-playing')), 'resizing preserves playback');
       if ((width === 420 && height === 540) || (width === 500 && height === 880) || (width === 800 && height === 540)) {
         await page.screenshot({ path: path.join(output, `resize-${mode}-${width}x${height}.png`) });
       }
     }
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(420, 540));
-    await page.waitForFunction(() => innerWidth === 420 && innerHeight === 540);
+    await resize(page, 420, 540);
     await page.evaluate(() => window.__fakePlayer.options.events.onError({ target: window.__fakePlayer, data: 101 }));
     await page.waitForSelector('.message');
     await inspect(page, mode, '420x540 with an error notice');
