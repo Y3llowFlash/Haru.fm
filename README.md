@@ -15,14 +15,16 @@ A tiny floating music companion for your desktop. Midnight pixel art, warm lamp 
 - Playback-linked animations with a motion toggle and support for the system's reduced-motion preference.
 - Actionable errors for unavailable videos and blocked embeds, with **Retry** and **Open on YouTube** controls.
 
-The YouTube player stays visible and unobstructed in both modes. Loading a link cues it; press Play to begin. Minimizing, hiding the window, system suspend, or scrolling most of the player out of view pauses playback. Restoring the window or waking from sleep does not autoplay; press Play to resume. Retry reloads the currently submitted source, even if you have typed another link without loading it.
+Both layouts show the full, unobstructed YouTube player when the desktop window is open. Loading a link cues it; press Play to begin. Desktop playback now continues when the window is minimized or covered by another window; restoring it keeps the same player and playback position. Deliberately paused playback stays paused on restore. System sleep still pauses playback, waking does not autoplay, and closing the app quits the player. Browser previews retain their pause-on-hidden behavior. Retry reloads the currently submitted source, even if you have typed another link without loading it.
+
+The requested desktop behavior enables background playback. [YouTube's API developer policies, section III.I.9](https://developers.google.com/youtube/terms/developer-policies#i.-additional-prohibitions), prohibit background-player features. This behavior is a change from the original visible-player-only design and should not be described as compliant with those terms. The app still uses the unmodified official player and does not bypass restrictions imposed by YouTube itself.
 
 ## Windows download
 
 Open the repository's **Actions → Windows app** page. After a successful run, download the **Haru.fm-Windows** artifact and extract it:
 
-- `Haru.fm-0.1.2-x64-setup.exe`: installer with a desktop shortcut.
-- `Haru.fm-0.1.2-x64-portable.exe`: portable version.
+- `Haru.fm-0.1.3-x64-setup.exe`: installer with a desktop shortcut.
+- `Haru.fm-0.1.3-x64-portable.exe`: portable version.
 
 These development builds are unsigned. Windows may show a publisher/SmartScreen prompt. No certificate or signing credentials are configured in this repository.
 
@@ -59,7 +61,7 @@ npm run check
 npm run dist:win
 ```
 
-`check` runs the parser/preferences/security/static-server tests, builds the renderer, and launches isolated Electron instances for deterministic UI and native-window checks. Responsive checks resize the real window across ten sizes in both modes, including 420×540, long titles, error notices, and 125% display scaling; they verify visible controls, video/artwork proportions, and preserved playback. Its YouTube test double verifies integration behavior; it does not prove live YouTube audio/video delivery. The Windows workflow runs these checks and packages both download formats.
+`check` runs the parser/preferences/security/static-server tests, builds the renderer, and launches isolated Electron instances for deterministic UI and native-window checks. Background checks cover the app with another native window, minimize via the app button and native window controls, and verify continuing player/renderer timers, playlist advancement, restore behavior, and the separate sleep pause. Responsive checks resize the real window across ten sizes in both modes, including 420×540, long titles, error notices, and 125% display scaling; they verify visible controls, video/artwork proportions, and preserved playback. Its YouTube test double verifies integration behavior; it does not prove live YouTube audio/video delivery. The Windows workflow runs these checks and packages both download formats.
 
 The Windows build is the primary target. The source can run on other desktop platforms with Electron, but macOS/Linux installers and platform-specific acceptance are outside this MVP.
 
@@ -67,7 +69,7 @@ The Windows build is the primary target. The source can run on other desktop pla
 
 ## Playback and privacy
 
-Haru.fm uses the **official YouTube IFrame Player API**. It does not download videos, extract audio, hide the player, or bypass ads or video restrictions. An internet connection is required, and video owners can prohibit embedding. Search, YouTube account sign-in, downloads, and cloud sync are not included.
+Haru.fm uses the **official YouTube IFrame Player API**. It does not download videos, extract audio, remove the embedded player, or bypass ads or video restrictions. An internet connection is required, and video owners can prohibit embedding. Search, YouTube account sign-in, downloads, and cloud sync are not included.
 
 No API key is required for this MVP. Links and preferences are saved on your device. The embedded player and thumbnails contact YouTube/Google, and the desktop app requests public video titles/channel names through YouTube's oEmbed endpoint. See [PRIVACY.md](PRIVACY.md).
 

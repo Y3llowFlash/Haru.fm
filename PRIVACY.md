@@ -6,6 +6,6 @@ Your device stores your last pasted link, volume, window position and size, layo
 
 No YouTube player is loaded automatically when the app starts. Clicking Load initializes the official YouTube embedded player. YouTube/Google receive the requests needed to display and play the video and may use their own cookies and service data. The desktop app also requests the video's public title and author from YouTube's oEmbed endpoint; displayed thumbnails are retrieved from YouTube.
 
-YouTube's normal advertising, content availability, regional restrictions, and embedding rules apply. Haru.fm cannot offer hidden audio-only playback or guaranteed access to every video.
+YouTube's normal advertising, content availability, and regional restrictions apply. The full embedded video player remains loaded if you minimize the desktop window or cover it with another window; Haru.fm does not extract audio or guarantee access to every video. This requested background playback behavior is restricted by [YouTube's API developer policies](https://developers.google.com/youtube/terms/developer-policies#i.-additional-prohibitions), as explained in the README.
 
 See [Google Privacy Policy](https://policies.google.com/privacy) and [YouTube Terms of Service](https://www.youtube.com/t/terms).

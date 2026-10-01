@@ -108,7 +108,7 @@ export default function App() {
       <div className="window-actions">
         <button className="window-button" title={prefs.alwaysOnTop ? 'Unpin window' : 'Always on top'} onClick={pin} aria-label={prefs.alwaysOnTop ? 'Unpin window' : 'Pin window'} aria-pressed={prefs.alwaysOnTop}><Icon name="pin" size={17} /></button>
         <button className="window-button" title={prefs.mode === 'mini' ? 'Cozy Mode' : 'Mini Mode'} onClick={changeMode} aria-label={prefs.mode === 'mini' ? 'Switch to Cozy Mode' : 'Switch to Mini Mode'}><Icon name={prefs.mode === 'mini' ? 'cozy' : 'mini'} size={17} /></button>
-        {desktop && <><button className="window-button" aria-label="Minimize window" title="Minimize" onClick={() => { video.pause(); window.haru.minimize(); }}><Icon name="minus" size={18} /></button><button className="window-button close-button" aria-label="Close window" title="Close" onClick={() => window.haru.close()}><Icon name="close" size={18} /></button></>}
+        {desktop && <><button className="window-button" aria-label="Minimize window" title="Minimize" onClick={() => window.haru.minimize().catch(() => setNotice('Could not minimize the window.'))}><Icon name="minus" size={18} /></button><button className="window-button close-button" aria-label="Close window" title="Close" onClick={() => window.haru.close()}><Icon name="close" size={18} /></button></>}
       </div>
     </header>
     <main>

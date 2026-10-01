@@ -44,8 +44,8 @@ function captureBounds() {
   }, 250);
 }
 
-function sendVisibility(visible) {
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('haru:visibility', visible);
+function sendSuspendState(suspended) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('haru:suspend', suspended);
 }
 
 function registerIPC() {
@@ -82,7 +82,7 @@ function registerIPC() {
     changingMode = false;
     return mode;
   });
-  handle('haru:minimize', () => { sendVisibility(false); mainWindow.minimize(); });
+  handle('haru:minimize', () => mainWindow.minimize());
   handle('haru:close', () => mainWindow.close());
   handle('haru:open-youtube', (url) => {
     if (!isSafeYouTubeURL(url)) throw new Error('Only YouTube links are allowed.');
@@ -135,6 +135,9 @@ async function createWindow() {
       nodeIntegration: false, nodeIntegrationInSubFrames: false, contextIsolation: true,
       sandbox: true, webSecurity: true, allowRunningInsecureContent: false,
       webviewTag: false, autoplayPolicy: 'document-user-activation-required',
+      // Keep the existing embedded player and its timers active when minimized
+      // or covered. Window visibility is separate from a system suspend.
+      backgroundThrottling: false,
     },
   });
   mainWindow.setMenu(null);
@@ -145,10 +148,6 @@ async function createWindow() {
   });
   mainWindow.on('resize', captureBounds);
   mainWindow.on('move', captureBounds);
-  mainWindow.on('minimize', () => sendVisibility(false));
-  mainWindow.on('hide', () => sendVisibility(false));
-  mainWindow.on('restore', () => sendVisibility(true));
-  mainWindow.on('show', () => sendVisibility(true));
   mainWindow.on('close', () => {
     clearTimeout(saveTimer);
     if (!mainWindow.isMinimized()) safeSave({ [`${preferences.get().mode}Bounds`]: mainWindow.getBounds() });
@@ -165,8 +164,8 @@ if (locked) {
   app.whenReady().then(async () => {
     preferences = createPreferenceStore(path.join(app.getPath('userData'), 'preferences.json'));
     registerIPC();
-    powerMonitor.on('suspend', () => sendVisibility(false));
-    powerMonitor.on('resume', () => sendVisibility(Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && !mainWindow.isMinimized())));
+    powerMonitor.on('suspend', () => sendSuspendState(true));
+    powerMonitor.on('resume', () => sendSuspendState(false));
     await createWindow();
   }).catch((error) => { console.error(error); app.quit(); });
   app.on('window-all-closed', () => app.quit());

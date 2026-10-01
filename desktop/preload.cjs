@@ -10,10 +10,10 @@ contextBridge.exposeInMainWorld('haru', Object.freeze({
   close: () => ipcRenderer.invoke('haru:close'),
   openYouTube: (url) => ipcRenderer.invoke('haru:open-youtube', url),
   getVideoMetadata: (videoId) => ipcRenderer.invoke('haru:metadata', videoId),
-  onVisibilityChange(callback) {
+  onSuspendChange(callback) {
     if (typeof callback !== 'function') return () => {};
-    const listener = (_event, visible) => callback(visible === true);
-    ipcRenderer.on('haru:visibility', listener);
-    return () => ipcRenderer.removeListener('haru:visibility', listener);
+    const listener = (_event, suspended) => callback(suspended === true);
+    ipcRenderer.on('haru:suspend', listener);
+    return () => ipcRenderer.removeListener('haru:suspend', listener);
   },
 }));

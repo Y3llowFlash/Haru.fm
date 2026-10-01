@@ -15,6 +15,21 @@ let app;
 let checks = 0;
 const check = (condition, message) => { assert.ok(condition, message); checks++; console.log(`PASS ${message}`); };
 
+async function expectBackgroundProgress(page, label) {
+  const before = await page.evaluate(() => ({ ticks: window.__backgroundTicks, time: window.__fakePlayer.time, displayedTime: document.querySelector('.time-display').textContent, pauses: window.__haruCalls.filter(([type]) => type === 'pause').length, creations: window.__playerCreations }));
+  await page.waitForFunction(previous => window.__backgroundTicks >= previous.ticks + 4 && window.__fakePlayer.time > previous.time && document.querySelector('.time-display').textContent !== previous.displayedTime, before, { timeout: 5000 });
+  const after = await page.evaluate(() => ({ pauses: window.__haruCalls.filter(([type]) => type === 'pause').length, creations: window.__playerCreations, state: window.__fakePlayer.playbackState, frameAlive: window.__fakePlayer.iframe.isConnected, displayedTime: document.querySelector('.time-display').textContent }));
+  check(after.state === 1 && after.frameAlive && after.pauses === before.pauses && after.creations === before.creations, `${label}: timers and playback continue on the same player without pause commands`);
+}
+
+async function minimizeNative() {
+  await app.evaluate(async ({ BrowserWindow }, headless) => {
+    const window = BrowserWindow.getAllWindows()[0];
+    if (headless || window.isMinimized()) { window.minimize(); return; }
+    await new Promise(resolve => { window.once('minimize', resolve); window.minimize(); });
+  }, headless);
+}
+
 async function launch() {
   const electronApp = await _electron.launch({ args, cwd: root, env: { ...process.env, HARU_QA_USER_DATA: userData }, timeout: 30000 });
   const page = await electronApp.firstWindow();
@@ -30,6 +45,13 @@ try {
   page.on('pageerror', (error) => errors.push(error.message));
   await page.route('https://i.ytimg.com/**', (route) => route.abort());
   await page.evaluate(fakePlayerScript);
+  await page.evaluate(() => {
+    window.__backgroundTicks = 0;
+    setInterval(() => {
+      window.__backgroundTicks++;
+      if (window.__fakePlayer?.playbackState === 1) window.__fakePlayer.time += .25;
+    }, 250);
+  });
   const input = page.getByLabel('YouTube video or playlist link', { exact: true });
   await input.fill('https://youtube.com.attacker.test/watch?v=jfKfPfyJRdk');
   await page.getByRole('button', { name: 'Load', exact: true }).click();
@@ -81,11 +103,32 @@ try {
   await app.evaluate(({ powerMonitor }) => powerMonitor.emit('suspend'));
   await page.waitForFunction(() => document.querySelector('.monitor-label').textContent.includes('PAUSED'));
   check(true, 'system suspend pauses playback');
+  await page.evaluate(() => window.__fakePlayer.playVideo());
+  await page.waitForFunction(() => window.__fakePlayer.playbackState === 2);
+  check(true, 'a playing event during system sleep cannot override the pause');
   await app.evaluate(({ powerMonitor }) => powerMonitor.emit('resume'));
   check(await page.getByRole('button', { name: 'Play', exact: true }).count() === 1, 'waking from sleep does not autoplay');
   await page.getByRole('button', { name: 'Play', exact: true }).click();
   await page.waitForSelector('.is-playing');
   check(true, 'Play works again after waking from sleep');
+  await app.evaluate(async ({ BrowserWindow }) => {
+    const main = BrowserWindow.getAllWindows()[0];
+    const bounds = main.getBounds();
+    const cover = new BrowserWindow({ x: bounds.x - 8, y: bounds.y - 8, width: bounds.width + 16, height: bounds.height + 16, frame: false, show: false, alwaysOnTop: true, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
+    await cover.loadURL('data:text/html,<title>Haru QA cover window</title><body style="background:%23273040;color:white">Another application covering Haru.fm</body>');
+    cover.show(); cover.focus();
+  });
+  if (!headless) check(await app.evaluate(({ BrowserWindow }) => !BrowserWindow.getAllWindows()[0].isFocused() && BrowserWindow.getAllWindows()[1].isFocused()), 'another native window covers Haru.fm and takes focus');
+  else check(true, 'headless cover window is created; physical occlusion is verified on Windows');
+  await expectBackgroundProgress(page, 'Covered window');
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(window => window.getTitle() === 'Haru QA cover window').close());
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.__fakePlayer.playVideo();
+  });
+  await expectBackgroundProgress(page, 'Desktop hidden-visibility event');
+  await page.evaluate(() => { delete document.hidden; });
   await page.screenshot({ path: path.join(screenshots, 'cozy.png'), fullPage: true });
   await page.getByRole('button', { name: 'Switch to Mini Mode', exact: true }).click();
   await page.waitForSelector('.app-window.mini');
@@ -99,13 +142,36 @@ try {
   else check(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isAlwaysOnTop()), 'pin toggles the native always-on-top window');
   await page.getByRole('button', { name: 'Minimize window', exact: true }).focus();
   await page.getByRole('button', { name: 'Minimize window', exact: true }).press('Enter');
-  await page.waitForFunction(() => document.querySelector('.monitor-label').textContent.includes('PAUSED'));
-  check(true, 'minimizing pauses playback');
-  await app.evaluate(({ powerMonitor }) => { powerMonitor.emit('suspend'); powerMonitor.emit('resume'); });
+  if (!headless) {
+    await app.evaluate(async ({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; if (!window.isMinimized()) await new Promise(resolve => window.once('minimize', resolve)); });
+    check(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMinimized()), 'the app button really minimizes the native window');
+  } else check(true, 'minimize button is exercised; native taskbar state is verified on Windows');
+  await expectBackgroundProgress(page, 'Minimized with the app button');
+  check(await page.evaluate(() => document.visibilityState === 'visible'), 'the minimized renderer stays active for the embedded player');
+  await page.evaluate(() => window.__fakePlayer.nextVideo());
+  await page.waitForFunction(() => window.__fakePlayer.index === 1 && window.__fakePlayer.playbackState === 1);
+  check(await page.evaluate(() => window.__playerCreations === 1), 'playlist advancement while minimized keeps the existing player');
+  await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.restore(); window.show(); });
+  await expectBackgroundProgress(page, 'Restored window');
+  await minimizeNative();
+  if (!headless) check(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMinimized()), 'native taskbar-style minimization really minimizes the window');
+  else check(true, 'native minimize is exercised; taskbar state is verified on Windows');
+  await expectBackgroundProgress(page, 'Minimized through native window controls');
+  await page.evaluate(() => document.querySelector('.play-button').click());
+  await page.waitForFunction(() => window.__fakePlayer.playbackState === 2);
+  await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.restore(); window.show(); });
+  check(await page.getByRole('button', { name: 'Play', exact: true }).count() === 1, 'restoring a deliberately paused player does not autoplay');
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await minimizeNative();
+  await app.evaluate(({ powerMonitor }) => powerMonitor.emit('suspend'));
   await page.evaluate(() => window.__fakePlayer.playVideo());
   await page.waitForFunction(() => document.querySelector('.monitor-label').textContent.includes('PAUSED'));
-  check(true, 'waking while minimized keeps playback paused');
+  await app.evaluate(({ powerMonitor }) => powerMonitor.emit('resume'));
+  check(await page.getByRole('button', { name: 'Play', exact: true }).count() === 1, 'system sleep while minimized still pauses and does not autoplay after wake');
   await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.restore(); window.show(); });
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await page.waitForSelector('.is-playing');
+  check(true, 'Play works after sleeping while minimized and restoring the window');
   await page.screenshot({ path: path.join(screenshots, 'mini.png'), fullPage: true });
   await page.evaluate(() => window.__fakePlayer.options.events.onError({ target: window.__fakePlayer, data: 101 }));
   check((await page.getByRole('alert').innerText()).includes('owner'), 'blocked embeds show an actionable YouTube error');

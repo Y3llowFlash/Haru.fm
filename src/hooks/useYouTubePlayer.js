@@ -7,6 +7,7 @@ const initial = { status: 'idle', ready: false, error: '', videoId: null, curren
 const states = { '-1': 'cued', 0: 'ended', 1: 'playing', 2: 'paused', 3: 'buffering', 5: 'cued' };
 
 export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioChange) {
+  const desktop = Boolean(window.haru);
   const [playback, setPlayback] = useState(initial);
   const playerRef = useRef(null);
   const initializationRef = useRef(null);
@@ -21,7 +22,7 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
   const cueWaitRef = useRef(null);
   const rejectReadyRef = useRef(null);
   const visibilityRef = useRef(true);
-  const nativeVisibilityRef = useRef(true);
+  const suspendedRef = useRef(false);
   const sourceRef = useRef(null);
   const pendingPlaylistVideo = useRef(null);
 
@@ -137,7 +138,7 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
               }
               if (!sourceReadyRef.current) return;
               const status = states[event.data] || 'loading';
-              if (event.data === 1 && (!visibilityRef.current || !nativeVisibilityRef.current || document.hidden)) { event.target.pauseVideo(); return; }
+              if (event.data === 1 && (suspendedRef.current || (!desktop && (!visibilityRef.current || document.hidden)))) { event.target.pauseVideo(); return; }
               update({ status, error: '' });
               sync();
             },
@@ -159,7 +160,7 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
       });
     })().catch((error) => { initializationRef.current = null; throw error; });
     return initializationRef.current;
-  }, [hostRef, update, sync]);
+  }, [desktop, hostRef, update, sync]);
 
   const load = useCallback(async (source) => {
     const request = ++generation.current;
@@ -190,10 +191,10 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
   }, [ensurePlayer, update]);
 
   const play = useCallback(() => {
-    if (!readyRef.current || !sourceReadyRef.current || !visibilityRef.current || !nativeVisibilityRef.current || document.hidden) return;
+    if (!readyRef.current || !sourceReadyRef.current || suspendedRef.current || (!desktop && (!visibilityRef.current || document.hidden))) return;
     update({ error: '' });
     playerRef.current.playVideo();
-  }, [update]);
+  }, [desktop, update]);
   const seek = useCallback((seconds) => {
     if (!readyRef.current || !sourceReadyRef.current || !Number.isFinite(seconds)) return;
     playerRef.current.seekTo(Math.max(0, Math.min(seconds, playerRef.current.getDuration() || 0)), true);
@@ -218,14 +219,19 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
   useEffect(() => {
     mounted.current = true;
     const interval = setInterval(sync, 500);
-    const onVisibility = () => { if (document.hidden) pause(); };
-    document.addEventListener('visibilitychange', onVisibility);
-    const removeNative = window.haru?.onVisibilityChange((visible) => { nativeVisibilityRef.current = visible; if (!visible) pause(); });
-    const observer = new IntersectionObserver(([entry]) => {
+    const onVisibility = () => { if (!desktop && document.hidden) pause(); };
+    if (!desktop) document.addEventListener('visibilitychange', onVisibility);
+    const removeNative = window.haru?.onSuspendChange((suspended) => {
+      suspendedRef.current = suspended;
+      if (suspended) pause();
+    });
+    // Browser previews retain their visible-player behavior. The desktop app
+    // keeps its player instance running even when its native window is covered.
+    const observer = desktop ? null : new IntersectionObserver(([entry]) => {
       visibilityRef.current = entry.isIntersecting && entry.intersectionRatio >= 0.5;
       if (!visibilityRef.current) pause();
     }, { threshold: [0, 0.5, 1] });
-    if (viewportRef.current) observer.observe(viewportRef.current);
+    if (viewportRef.current) observer?.observe(viewportRef.current);
     return () => {
       mounted.current = false;
       generation.current++;
@@ -233,7 +239,7 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisibility);
       removeNative?.();
-      observer.disconnect();
+      observer?.disconnect();
       rejectReadyRef.current?.(new Error('Player closed.'));
       rejectReadyRef.current = null;
       readyRef.current = false;
@@ -244,7 +250,7 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
       playerRef.current = null;
       initializationRef.current = null;
     };
-  }, [pause, sync, viewportRef]);
+  }, [desktop, pause, sync, viewportRef]);
 
   return { ...playback, load, play, pause, seek, next, previous };
 }
