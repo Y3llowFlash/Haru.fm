@@ -118,7 +118,15 @@ try {
     await cover.loadURL('data:text/html,<title>Haru QA cover window</title><body style="background:%23273040;color:white">Another application covering Haru.fm</body>');
     cover.show(); cover.focus();
   });
-  if (!headless) check(await app.evaluate(({ BrowserWindow }) => !BrowserWindow.getAllWindows()[0].isFocused() && BrowserWindow.getAllWindows()[1].isFocused()), 'another native window covers Haru.fm and takes focus');
+  const coverage = await app.evaluate(({ BrowserWindow }) => {
+    // Electron does not guarantee getAllWindows() ordering or foreground focus.
+    // The regression needs an actual visible topmost window covering the player.
+    const cover = BrowserWindow.getAllWindows().find(window => window.getTitle() === 'Haru QA cover window');
+    const main = BrowserWindow.getAllWindows().find(window => window !== cover);
+    return { main: main.getBounds(), cover: cover.getBounds(), visible: cover.isVisible(), topmost: cover.isAlwaysOnTop(), coverFocused: cover.isFocused(), mainFocused: main.isFocused() };
+  });
+  console.log('Native cover geometry:', coverage);
+  if (!headless) check(coverage.visible && coverage.topmost && coverage.cover.x <= coverage.main.x && coverage.cover.y <= coverage.main.y && coverage.cover.x + coverage.cover.width >= coverage.main.x + coverage.main.width && coverage.cover.y + coverage.cover.height >= coverage.main.y + coverage.main.height, 'another visible topmost native window fully covers Haru.fm');
   else check(true, 'headless cover window is created; physical occlusion is verified on Windows');
   await expectBackgroundProgress(page, 'Covered window');
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(window => window.getTitle() === 'Haru QA cover window').close());
