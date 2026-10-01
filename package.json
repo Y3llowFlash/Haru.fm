@@ -1,7 +1,7 @@
 {
   "name": "haru-fm",
   "productName": "Haru.fm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A cozy floating desktop music companion powered by YouTube.",
   "private": true,
   "type": "module",
@@ -20,7 +20,8 @@
     "start": "electron .",
     "pack": "npm run build && electron-builder --dir --publish never",
     "dist:win": "npm run build && electron-builder --win --x64 --publish never",
-    "test:ui": "node scripts/test-ui.mjs"
+    "test:ui": "node scripts/test-ui.mjs",
+    "test:live": "node scripts/test-live.mjs"
   },
   "dependencies": {
     "@fontsource/vt323": "5.3.0",

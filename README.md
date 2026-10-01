@@ -9,18 +9,19 @@ A tiny floating music companion for your desktop. Midnight pixel art, warm lamp 
 - **Mini Mode:** the same player and controls with the decorative room removed. Switching modes preserves playback.
 - YouTube video and playlist links, including short, Shorts, live, Music, and timestamped links.
 - Play/pause, seeking, volume, mute, previous/restart, and playlist next. Press **Space** outside an input or focused button to play/pause.
-- Local persistence for your last link, volume, layout, pin state, motion preference, and each layout's window position and size.
+- Local persistence for your last link, volume/mute, layout, pin state, motion preference, and each layout's window position and size.
+- Audio controls synchronize with YouTube's native volume and mute controls; muting preserves your chosen volume.
 - Playback-linked animations with a motion toggle and support for the system's reduced-motion preference.
-- Actionable errors for unavailable videos and blocked embeds, with an **Open on YouTube** button.
+- Actionable errors for unavailable videos and blocked embeds, with **Retry** and **Open on YouTube** controls.
 
-The YouTube player stays visible and unobstructed in both modes. Loading a link cues it; press Play to begin. Minimizing, hiding the window, system suspend, or scrolling most of the player out of view pauses playback. Restoring the window does not autoplay.
+The YouTube player stays visible and unobstructed in both modes. Loading a link cues it; press Play to begin. Minimizing, hiding the window, system suspend, or scrolling most of the player out of view pauses playback. Restoring the window or waking from sleep does not autoplay; press Play to resume. Retry reloads the currently submitted source, even if you have typed another link without loading it.
 
 ## Windows download
 
 Open the repository's **Actions → Windows app** page. After a successful run, download the **Haru.fm-Windows** artifact and extract it:
 
-- `Haru.fm-0.1.0-x64-setup.exe`: installer with a desktop shortcut.
-- `Haru.fm-0.1.0-x64-portable.exe`: portable version.
+- `Haru.fm-0.1.1-x64-setup.exe`: installer with a desktop shortcut.
+- `Haru.fm-0.1.1-x64-portable.exe`: portable version.
 
 These development builds are unsigned. Windows may show a publisher/SmartScreen prompt. No certificate or signing credentials are configured in this repository.
 
@@ -60,6 +61,8 @@ npm run dist:win
 `check` runs the parser/preferences/security/static-server tests, builds the renderer, and launches an isolated Electron instance for deterministic UI and native-window checks. Its YouTube test double verifies integration behavior; it does not prove live YouTube audio/video delivery. The Windows workflow runs these checks and packages both download formats.
 
 The Windows build is the primary target. The source can run on other desktop platforms with Electron, but macOS/Linux installers and platform-specific acceptance are outside this MVP.
+
+`npm run test:live` separately attempts real YouTube playback using the example video from the official IFrame API documentation. The Windows workflow records its result in **Haru.fm-Live-YouTube-check**. This external-service check can fail due to runner connectivity, video restrictions, or service availability, so it does not prevent otherwise passing builds from being packaged. Read the JSON report or the workflow step's result; a green packaging run alone does not prove live streaming. Audible sound still needs a check on your own device.
 
 ## Playback and privacy
 

@@ -104,6 +104,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px;
 .message { border-left: 2px solid #c99a5c; background: #30271e; padding: 9px 10px; margin-top: 10px; display: flex; align-items: start; gap: 8px; color: #ead5b9; font-size: 12px; line-height: 1.5; }
 .message span { flex: 1; }
 .message button { border: 0; background: transparent; color: #d6b995; padding: 2px; display: grid; place-items: center; }
+.message .retry-button { display: block; padding: 3px 8px; border: 1px solid #916d44; border-radius: 3px; background: #493725; color: #f1d4ad; flex-shrink: 0; }
 footer { min-height: 31px; margin: 0 16px 6px; padding: 4px 0; border-top: 1px solid #46526a; display: flex; justify-content: space-between; align-items: center; gap: 8px; color: #7f91ab; font: 9px monospace; letter-spacing: .08em; }
 footer button { display: flex; align-items: center; gap: 4px; border: 0; background: transparent; color: #95a6be; font: 9px monospace; padding: 3px 0 3px 5px; }
 footer button[aria-pressed=true] { color: #c4ae8c; }

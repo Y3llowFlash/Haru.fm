@@ -26,6 +26,10 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Check the app and native window controls
         run: npm run check
+      - name: Check real YouTube playback (external service)
+        continue-on-error: true
+        timeout-minutes: 4
+        run: npm run test:live
       - name: Build Windows installer and portable app
         run: npx electron-builder --win --x64 --publish never
       - name: Upload Windows downloads
@@ -41,5 +45,13 @@ jobs:
         with:
           name: Haru.fm-UI-checks
           path: test-results/*.png
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload live YouTube check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Haru.fm-Live-YouTube-check
+          path: test-results/live-*
           if-no-files-found: ignore
           retention-days: 14

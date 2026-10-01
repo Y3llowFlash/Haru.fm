@@ -5,13 +5,16 @@ import { playerErrorMessage } from '../lib/youtube.js';
 const initial = { status: 'idle', ready: false, error: '', videoId: null, currentTime: 0, duration: 0, playlist: [], playlistIndex: -1 };
 const states = { '-1': 'loading', 0: 'ended', 1: 'playing', 2: 'paused', 3: 'buffering', 5: 'cued' };
 
-export function useYouTubePlayer(hostRef, viewportRef, volume) {
+export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioChange) {
   const [playback, setPlayback] = useState(initial);
   const playerRef = useRef(null);
   const initializationRef = useRef(null);
   const mounted = useRef(true);
   const generation = useRef(0);
-  const volumeRef = useRef(volume);
+  const audioRef = useRef({ volume, muted });
+  const onAudioChangeRef = useRef(onAudioChange);
+  const audioSettlingUntil = useRef(0);
+  const instanceGeneration = useRef(0);
   const readyRef = useRef(false);
   const rejectReadyRef = useRef(null);
   const visibilityRef = useRef(true);
@@ -26,6 +29,18 @@ export function useYouTubePlayer(hostRef, viewportRef, volume) {
     const player = playerRef.current;
     if (!readyRef.current || !player) return;
     try {
+      // Native YouTube controls can change audio without a player-state event.
+      // Let our asynchronous commands settle before reading the frame's cached values.
+      if (Date.now() >= audioSettlingUntil.current) {
+        const rawVolume = player.getVolume();
+        if (Number.isFinite(rawVolume)) {
+          const audio = { volume: Math.round(Math.max(0, Math.min(100, rawVolume))), muted: player.isMuted() };
+          if (audio.volume !== audioRef.current.volume || audio.muted !== audioRef.current.muted) {
+            audioRef.current = audio;
+            onAudioChangeRef.current?.(audio);
+          }
+        }
+      }
       const url = player.getVideoUrl();
       const videoId = url ? new URL(url).searchParams.get('v') : null;
       const playlist = sourceRef.current?.kind === 'playlist' ? player.getPlaylist() || [] : [];
@@ -55,28 +70,43 @@ export function useYouTubePlayer(hostRef, viewportRef, volume) {
     initializationRef.current = (async () => {
       const YT = await loadYouTubeAPI();
       if (!mounted.current || !hostRef.current) throw new Error('Player closed.');
+      const instance = ++instanceGeneration.current;
       return new Promise((resolve, reject) => {
-        rejectReadyRef.current = reject;
+        let settled = false;
+        const isCurrent = (target) => mounted.current && instance === instanceGeneration.current && target === playerRef.current;
         const node = document.createElement('div');
         hostRef.current.replaceChildren(node);
-        const timeout = setTimeout(() => {
+        let timeout;
+        const rejectReady = (error) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
           rejectReadyRef.current = null;
-          playerRef.current?.destroy();
-          playerRef.current = null;
-          reject(new Error('The YouTube player did not respond. Check your connection and load the link again.'));
-        }, 20000);
-        const rejectReady = (error) => { clearTimeout(timeout); rejectReadyRef.current = null; reject(error); };
+          if (instance === instanceGeneration.current) {
+            instanceGeneration.current++;
+            readyRef.current = false;
+            const failed = playerRef.current;
+            playerRef.current = null;
+            failed?.destroy();
+          }
+          reject(error);
+        };
+        timeout = setTimeout(() => rejectReady(new Error('The YouTube player did not respond. Check your connection and try again.')), 20000);
         rejectReadyRef.current = rejectReady;
-        playerRef.current = new YT.Player(node, {
+        try { playerRef.current = new YT.Player(node, {
           width: '100%', height: '100%',
           playerVars: { autoplay: 0, controls: 1, playsinline: 1, rel: 0, origin: window.location.origin, widget_referrer: 'https://fm.haru.desktop/' },
           events: {
             onReady(event) {
+              if (!isCurrent(event.target)) { event.target.destroy(); return; }
+              if (settled) return;
+              settled = true;
               clearTimeout(timeout);
               rejectReadyRef.current = null;
-              if (!mounted.current) { event.target.destroy(); reject(new Error('Player closed.')); return; }
               readyRef.current = true;
-              event.target.setVolume(volumeRef.current);
+              event.target.setVolume(audioRef.current.volume);
+              audioRef.current.muted ? event.target.mute() : event.target.unMute();
+              audioSettlingUntil.current = Date.now() + 1000;
               const iframe = event.target.getIframe();
               iframe.title = 'YouTube video player';
               iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
@@ -84,19 +114,21 @@ export function useYouTubePlayer(hostRef, viewportRef, volume) {
               resolve(event.target);
             },
             onStateChange(event) {
+              if (!isCurrent(event.target)) return;
               const status = states[event.data] || 'loading';
               if (event.data === 1 && (!visibilityRef.current || !nativeVisibilityRef.current || document.hidden)) { event.target.pauseVideo(); return; }
               update({ status, error: '' });
               sync();
             },
             onError(event) {
+              if (!isCurrent(event.target)) return;
               const message = playerErrorMessage(event.data);
               update({ status: 'error', error: message });
-              if (!readyRef.current) { rejectReady(new Error(message)); event.target.destroy(); playerRef.current = null; }
+              if (!readyRef.current) rejectReady(new Error(message));
             },
-            onAutoplayBlocked() { update({ status: 'cued', error: 'Press Play, or use the play button inside the YouTube video.' }); },
+            onAutoplayBlocked(event) { if (isCurrent(event.target)) update({ status: 'cued', error: 'Press Play, or use the play button inside the YouTube video.' }); },
           },
-        });
+        }); } catch (error) { rejectReady(error); }
       });
     })().catch((error) => { initializationRef.current = null; throw error; });
     return initializationRef.current;
@@ -137,7 +169,15 @@ export function useYouTubePlayer(hostRef, viewportRef, volume) {
     else playerRef.current.previousVideo();
   }, [seek]);
 
-  useEffect(() => { volumeRef.current = volume; if (readyRef.current) playerRef.current?.setVolume(volume); }, [volume]);
+  useEffect(() => { onAudioChangeRef.current = onAudioChange; }, [onAudioChange]);
+  useEffect(() => {
+    const previous = audioRef.current;
+    audioRef.current = { volume, muted };
+    if (!readyRef.current || !playerRef.current) return;
+    if (volume !== previous.volume) playerRef.current.setVolume(volume);
+    if (muted !== previous.muted) muted ? playerRef.current.mute() : playerRef.current.unMute();
+    if (volume !== previous.volume || muted !== previous.muted) audioSettlingUntil.current = Date.now() + 1000;
+  }, [volume, muted]);
   useEffect(() => {
     mounted.current = true;
     const interval = setInterval(sync, 500);
@@ -152,6 +192,7 @@ export function useYouTubePlayer(hostRef, viewportRef, volume) {
     return () => {
       mounted.current = false;
       generation.current++;
+      instanceGeneration.current++;
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisibility);
       removeNative?.();

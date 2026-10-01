@@ -15,10 +15,12 @@ test('preferences constrain values and survive a restart', async () => {
   try {
     const file = path.join(dir, 'settings.json');
     const store = createPreferenceStore(file);
-    store.update({ volume: 250, mode: 'mini', alwaysOnTop: true, animations: false, lastInput: 'https://youtu.be/jfKfPfyJRdk' });
+    store.update({ volume: 250, muted: true, mode: 'mini', alwaysOnTop: true, animations: false, lastInput: 'https://youtu.be/jfKfPfyJRdk' });
     const restored = createPreferenceStore(file).get();
     assert.equal(restored.volume, 100); assert.equal(restored.mode, 'mini'); assert.equal(restored.alwaysOnTop, true);
     assert.equal(restored.animations, false); assert.match(restored.lastInput, /youtu.be/);
+    assert.equal(restored.muted, true);
+    assert.equal(sanitizePreferences({ volume: 0 }).muted, false);
     assert.equal(sanitizePreferences({ volume: NaN, mode: 'evil', miniBounds: { x: 0, y: 0, width: -1, height: 0 } }).miniBounds.width, 420);
     await writeFile(file, '{broken');
     assert.equal(createPreferenceStore(file).get().volume, 65);

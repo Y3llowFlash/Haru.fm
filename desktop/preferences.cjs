@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const defaults = Object.freeze({
-  mode: 'cozy', alwaysOnTop: false, volume: 65, lastInput: '', animations: true,
+  mode: 'cozy', alwaysOnTop: false, volume: 65, muted: false, lastInput: '', animations: true,
   cozyBounds: null, miniBounds: null,
 });
 
@@ -12,6 +12,7 @@ function sanitizePreferences(input) {
   result.mode = input.mode === 'mini' ? 'mini' : 'cozy';
   result.alwaysOnTop = input.alwaysOnTop === true;
   result.animations = input.animations !== false;
+  result.muted = input.muted === true;
   if (Number.isFinite(input.volume)) result.volume = Math.round(Math.max(0, Math.min(100, input.volume)));
   if (typeof input.lastInput === 'string') result.lastInput = input.lastInput.slice(0, 2048);
   for (const key of ['cozyBounds', 'miniBounds']) {

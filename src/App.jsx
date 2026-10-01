@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useYouTubePlayer } from './hooks/useYouTubePlayer.js';
 import { parseYouTubeInput, formatTime } from './lib/youtube.js';
 import { defaultPreferences, readPreferences, savePreferences } from './lib/preferences.js';
@@ -17,10 +17,12 @@ export default function App() {
   const lastVolume = useRef(65);
   const host = useRef(null);
   const viewport = useRef(null);
-  const video = useYouTubePlayer(host, viewport, prefs.volume);
+  const updateAudio = useCallback((audio) => setPrefs((previous) => ({ ...previous, ...audio })), []);
+  const video = useYouTubePlayer(host, viewport, prefs.volume, prefs.muted, updateAudio);
   const desktop = Boolean(window.haru);
   const playing = video.status === 'playing';
   const busy = video.status === 'loading';
+  const silent = prefs.muted || prefs.volume === 0;
 
   useEffect(() => {
     let alive = true;
@@ -32,9 +34,10 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (!preferencesReady) return;
-    const timer = setTimeout(() => savePreferences({ volume: prefs.volume, animations: prefs.animations }).catch(() => setNotice('Your preferences could not be saved.')), 250);
-    return () => clearTimeout(timer);
-  }, [prefs.volume, prefs.animations, preferencesReady]);
+    // Persist immediately so closing after a mute/volume change cannot lose it.
+    savePreferences({ volume: prefs.volume, muted: prefs.muted, animations: prefs.animations }).catch(() => setNotice('Your preferences could not be saved.'));
+  }, [prefs.volume, prefs.muted, prefs.animations, preferencesReady]);
+  useEffect(() => { if (prefs.volume > 0) lastVolume.current = prefs.volume; }, [prefs.volume]);
   useEffect(() => {
     let alive = true;
     setMetadata(null);
@@ -73,6 +76,7 @@ export default function App() {
     try { next = parseYouTubeInput(input); }
     catch (error) { setInputError(error.message); return; }
     setSource(next);
+    setSeekDraft(null);
     savePreferences({ lastInput: input.trim() }).catch(() => {});
     await video.load(next);
   }
@@ -84,8 +88,15 @@ export default function App() {
   }
 
   function toggleMute() {
-    if (prefs.volume > 0) { lastVolume.current = prefs.volume; setPrefs((previous) => ({ ...previous, volume: 0 })); }
-    else setPrefs((previous) => ({ ...previous, volume: lastVolume.current || 65 }));
+    setPrefs((previous) => silent
+      ? { ...previous, muted: false, volume: previous.volume || lastVolume.current || 65 }
+      : { ...previous, muted: true });
+  }
+
+  async function retry() {
+    if (!source || busy) return;
+    setInputError(''); setNotice(''); setSeekDraft(null);
+    await video.load(source);
   }
 
   const statusText = { idle: 'READY WHEN YOU ARE', loading: 'CONNECTING', cued: 'PRESS PLAY', playing: 'PLAYING', paused: 'PAUSED', buffering: 'BUFFERING', ended: 'FINISHED', error: 'UNAVAILABLE' }[video.status];
@@ -121,7 +132,7 @@ export default function App() {
           <button onClick={video.next} disabled={!video.ready || !video.playlist.length || video.playlistIndex >= video.playlist.length - 1} aria-label="Next track" title="Next track"><Icon name="next" size={23} /></button>
         </div>
         <label className="seek"><span className="sr-only">Seek</span><input aria-label="Seek" aria-valuetext={`${formatTime(seekDraft ?? video.currentTime)} of ${formatTime(video.duration)}`} style={{ '--range-progress': `${video.duration ? (seekDraft ?? video.currentTime) / video.duration * 100 : 0}%` }} type="range" min="0" max={Math.max(1, video.duration)} step="1" value={seekDraft ?? Math.min(video.currentTime, video.duration)} disabled={!video.ready || video.duration <= 0} onChange={(event) => setSeekDraft(Number(event.target.value))} onPointerUp={(event) => { video.seek(Number(event.currentTarget.value)); setSeekDraft(null); }} onKeyUp={(event) => { video.seek(Number(event.currentTarget.value)); setSeekDraft(null); }} onPointerCancel={() => setSeekDraft(null)} onBlur={() => { if (seekDraft !== null) video.seek(seekDraft); setSeekDraft(null); }} /></label>
-        <div className="time-volume"><span className="time-display">{formatTime(seekDraft ?? video.currentTime)} <span className="time-divider">/</span> {video.duration ? formatTime(video.duration) : '—:—'}</span><div className="volume"><button onClick={toggleMute} aria-label={prefs.volume ? 'Mute' : 'Unmute'} title={prefs.volume ? 'Mute' : 'Unmute'}><Icon name={prefs.volume ? 'volume' : 'muted'} size={17} /></button><input aria-label="Volume" style={{ '--range-progress': `${prefs.volume}%` }} type="range" min="0" max="100" value={prefs.volume} onChange={(event) => setPrefs((previous) => ({ ...previous, volume: Number(event.target.value) }))} /><span>{prefs.volume}%</span></div></div>
+        <div className="time-volume"><span className="time-display">{formatTime(seekDraft ?? video.currentTime)} <span className="time-divider">/</span> {video.duration ? formatTime(video.duration) : '—:—'}</span><div className="volume"><button onClick={toggleMute} aria-label={silent ? 'Unmute' : 'Mute'} title={silent ? 'Unmute' : 'Mute'} aria-pressed={silent}><Icon name={silent ? 'muted' : 'volume'} size={17} /></button><input aria-label="Volume" style={{ '--range-progress': `${prefs.volume}%` }} type="range" min="0" max="100" value={prefs.volume} onChange={(event) => setPrefs((previous) => ({ ...previous, volume: Number(event.target.value), muted: Number(event.target.value) === 0 }))} /><span>{prefs.volume}%</span></div></div>
       </section>
       <form className="link-form" onSubmit={submit}>
         <Icon name="link" size={18} />
@@ -129,7 +140,7 @@ export default function App() {
         <input id="youtube-link" type="text" value={input} maxLength="2048" placeholder="Paste a YouTube or playlist link" onChange={(event) => { setInput(event.target.value); setInputError(''); }} autoComplete="off" spellCheck="false" disabled={!preferencesReady} aria-invalid={Boolean(inputError)} />
         <button type="submit" disabled={busy || !preferencesReady}>{busy ? 'Loading…' : 'Load'}</button>
       </form>
-      {(inputError || video.error || notice) && <div className="message" role={inputError || video.status === 'error' ? 'alert' : 'status'}><span>{inputError || video.error || notice}</span>{!video.error && <button aria-label="Dismiss notice" onClick={() => { setInputError(''); setNotice(''); }}><Icon name="close" size={15} /></button>}</div>}
+      {(inputError || video.error || notice) && <div className="message" role={inputError || video.status === 'error' ? 'alert' : 'status'}><span>{inputError || video.error || notice}</span>{video.status === 'error' && source && <button className="retry-button" onClick={retry} disabled={busy}>Retry</button>}{!video.error && <button aria-label="Dismiss notice" onClick={() => { setInputError(''); setNotice(''); }}><Icon name="close" size={15} /></button>}</div>}
       {!desktop && <p className="preview-note">Browser preview · floating and pinning are available in the desktop app.</p>}
     </main>
     <footer><span>MUSIC · FOCUS · A BETTER DAY</span><button title={prefs.animations ? 'Room animations on' : 'Room animations off'} aria-label={prefs.animations ? 'Turn off room animations' : 'Turn on room animations'} aria-pressed={prefs.animations} onClick={() => setPrefs((previous) => ({ ...previous, animations: !previous.animations }))}><Icon name="motion" size={15} /><span>{prefs.animations ? 'ON' : 'OFF'}</span></button></footer>

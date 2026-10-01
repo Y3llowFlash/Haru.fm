@@ -1,4 +1,4 @@
-export const defaultPreferences = { mode: 'cozy', alwaysOnTop: false, volume: 65, lastInput: '', animations: true };
+export const defaultPreferences = { mode: 'cozy', alwaysOnTop: false, volume: 65, muted: false, lastInput: '', animations: true };
 const key = 'haru-fm:preferences';
 
 export async function readPreferences() {

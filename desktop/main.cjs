@@ -60,6 +60,7 @@ function registerIPC() {
     const allowed = {};
     if (patch && typeof patch === 'object') {
       if (Number.isFinite(patch.volume)) allowed.volume = patch.volume;
+      if (typeof patch.muted === 'boolean') allowed.muted = patch.muted;
       if (typeof patch.lastInput === 'string') allowed.lastInput = patch.lastInput.slice(0, 2048);
       if (typeof patch.animations === 'boolean') allowed.animations = patch.animations;
     }
@@ -165,6 +166,7 @@ if (locked) {
     preferences = createPreferenceStore(path.join(app.getPath('userData'), 'preferences.json'));
     registerIPC();
     powerMonitor.on('suspend', () => sendVisibility(false));
+    powerMonitor.on('resume', () => sendVisibility(Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && !mainWindow.isMinimized())));
     await createWindow();
   }).catch((error) => { console.error(error); app.quit(); });
   app.on('window-all-closed', () => app.quit());
