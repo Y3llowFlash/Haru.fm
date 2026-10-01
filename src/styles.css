@@ -132,9 +132,72 @@ footer button[aria-pressed=true] { color: #c4ae8c; }
   .volume input { width: 56px; }
   footer { margin-inline: 12px; font-size: 8px; }
 }
-@media (max-height: 800px) and (min-width: 420px) {
-  .cozy .room { max-height: 220px; }
-  .cozy .room-background { object-fit: fill; }
+/* Desktop content fits the client viewport. Only the two visual areas flex;
+   transport, link input and native window buttons always remain reachable. */
+html.desktop-app, .desktop-app body, .desktop-app #root { width: 100%; height: 100%; overflow: hidden; }
+.desktop-app .app-window { height: 100dvh; min-height: 0; }
+.desktop-app .titlebar { height: 48px; min-height: 48px; flex: 0 0 auto; }
+.desktop-app .brand { min-width: 0; }
+.desktop-app .window-actions { flex-shrink: 0; }
+.desktop-app main {
+  min-height: 0; max-width: none; padding: 10px 12px;
+  display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(244px, 1fr) max-content max-content;
+}
+.desktop-app .cozy main { grid-template-rows: minmax(0, .75fr) minmax(244px, 1fr) max-content max-content; }
+.desktop-app .room-space { min-height: 0; container: room-space / size; display: grid; place-items: center; }
+.desktop-app .room {
+  width: min(100cqw, calc(100cqh * 1.5)); height: min(100cqh, calc(100cqw / 1.5));
+  margin: 0; aspect-ratio: 3 / 2;
+}
+.desktop-app .room-background { object-fit: contain; }
+.desktop-app .monitor { min-height: 0; display: flex; flex-direction: column; }
+.desktop-app .monitor-label { min-height: 24px; flex-shrink: 0; }
+.desktop-app .monitor-bottom { height: 18px; flex-shrink: 0; }
+.desktop-app .player-space { flex: 1; min-height: 200px; container: player-space / size; display: grid; place-items: center; }
+.desktop-app .player-viewport {
+  width: min(100cqw, calc(100cqh * 16 / 9)); height: min(100cqh, calc(100cqw * 9 / 16));
+  min-width: 200px; min-height: 200px;
+}
+.desktop-app .transport, .desktop-app .link-form, .desktop-app .message { margin-top: 0; }
+.desktop-app .track-info h1 { -webkit-line-clamp: 1; }
+.desktop-app .message { max-height: 44px; overflow-y: auto; min-height: 0; }
+.desktop-app footer { height: 26px; min-height: 26px; flex-shrink: 0; margin: 0 12px; }
+@container room-space (max-height: 110px) {
+  .room-caption { display: none; }
+}
+@media (max-height: 700px) {
+  .desktop-app .titlebar { height: 40px; min-height: 40px; padding-block: 4px; }
+  .desktop-app .brand { font-size: 26px; }
+  .desktop-app main { padding: 5px 10px; gap: 5px; grid-template-rows: minmax(232px, 1fr) max-content max-content; }
+  .desktop-app .cozy main { grid-template-rows: minmax(20px, .75fr) minmax(232px, 1fr) max-content max-content; }
+  .desktop-app .monitor-label { min-height: 18px; font-size: 9px; }
+  .desktop-app .monitor-bottom { height: 12px; font-size: 8px; }
+  .desktop-app .transport { padding: 5px 9px 3px; }
+  .desktop-app .track-info { min-height: 34px; gap: 8px; }
+  .desktop-app .track-art { width: 34px; height: 34px; }
+  .desktop-app .track-info h1 { font-size: 20px; margin: 0 0 1px; }
+  .desktop-app .track-info p { font-size: 11px; }
+  .desktop-app .eyebrow { display: none; }
+  .desktop-app .transport-buttons { margin: 3px 0; gap: 21px; }
+  .desktop-app .transport-buttons button { width: 49px; height: 32px; }
+  .desktop-app .transport-buttons .play-button { width: 61px; height: 32px; }
+  .desktop-app .seek { height: 19px; align-items: center; }
+  .desktop-app .time-volume { margin: 0; }
+  .desktop-app .volume button { padding: 2px; }
+  .desktop-app .link-form { padding: 2px 3px 2px 8px; }
+  .desktop-app .link-form input { padding-block: 5px; }
+  .desktop-app .link-form button { padding-block: 3px; }
+  .desktop-app footer { height: 18px; min-height: 18px; padding-block: 1px; }
+}
+@media (min-width: 720px) and (max-height: 760px) {
+  .desktop-app .cozy main {
+    grid-template-columns: minmax(0, 1fr) minmax(376px, 1.2fr);
+    grid-template-rows: minmax(232px, 1fr) max-content max-content;
+  }
+  .desktop-app .cozy .room-space { grid-column: 1; grid-row: 1; }
+  .desktop-app .cozy .monitor { grid-column: 2; grid-row: 1; }
+  .desktop-app .cozy .transport, .desktop-app .cozy .link-form, .desktop-app .cozy .message { grid-column: 1 / -1; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0s !important; transition-duration: 0s !important; }

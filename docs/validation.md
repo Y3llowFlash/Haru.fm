@@ -1,9 +1,10 @@
-# Haru.fm 0.1.1 verification
+# Haru.fm 0.1.2 verification
 
 - Production renderer build: passed.
 - Core checks: 9 passing tests covering URL formats and timestamps, deceptive hosts, persistence/restart behavior, privileged IPC sender validation, and packaged-server security.
 - Electron UI checks: 40 passed using an isolated application-data directory and a deterministic YouTube player double. Covered loading without autoplay, play/pause animation state, seeking, volume/mute, playlist next/previous, mode switching without player recreation, minimum player dimensions, native resizing, minimizing, unavailable-video errors, Node.js isolation, and restart persistence. Added coverage for native YouTube audio synchronization, preserving volume while muted, immediate mute persistence, suspend/resume, resuming while minimized, retrying failed API downloads, ignoring stale callbacks from replaced players, and waiting for the actual cue before enabling Play. An unstarted video also leaves Load available so a blocked player cannot lock the link form.
 - Linux headless verification checks the requested pin preference. Its compositor has no stacking order; the Windows workflow additionally verifies the real native always-on-top flag.
+- Responsive-window checks: 22 passed in Electron at 125% display scaling. Ten native window sizes in both modes cover the 420×540 minimum, tall/narrow and wide/short shapes, long multilingual titles, visible window/player/transport/link controls, no document scrolling, 16:9 video, 3:2 artwork, and playback without player recreation. Both modes also fit an error notice at the minimum size. These checks run as part of `npm run check` on Windows.
 - Local live YouTube attempt: the execution environment returned `net::ERR_EMPTY_RESPONSE` for `https://www.youtube.com/iframe_api`. The app showed its connection error correctly. Live audio/video streaming was therefore **not verified here**.
 
 The workflow offers a separate manual live YouTube smoke check (`Run workflow → live_check`) and uploads `live-player.json` plus a screenshot as **Haru.fm-Live-YouTube-check**. This external-service result is separate from the deterministic checks and can fail without preventing packaging. It uses the official documentation example video; no player double is installed. Read the report before claiming live playback was verified.
@@ -18,7 +19,7 @@ After downloading or running the app on Windows:
 2. Pause, seek, change volume, mute and unmute. Change volume/mute inside YouTube and confirm Haru.fm follows; confirm custom Unmute restores sound.
 3. Load a playlist and use Next/Previous.
 4. Switch Cozy/Mini while playing. Confirm playback continues and the video remains visible.
-5. Pin the app, switch to another application, and confirm Haru.fm remains above it. Drag the title bar and resize the window.
+5. Pin the app, switch to another application, and confirm Haru.fm remains above it. Drag the title bar and resize the window in both modes. Confirm the video and artwork keep their proportions, controls and link field remain visible, and the page does not scroll.
 6. Minimize and restore. Confirm playback pauses and requires a fresh Play action.
 7. Let Windows sleep and wake; confirm playback stays paused and Play works again. Repeat while minimized.
 8. Disconnect and try Load, reconnect, then Retry. Confirm it reloads the submitted link and requires Play.

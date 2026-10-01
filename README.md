@@ -7,6 +7,7 @@ A tiny floating music companion for your desktop. Midnight pixel art, warm lamp 
 - Frameless, draggable, resizable Electron window with an always-on-top pin.
 - **Cozy Mode:** a pixel listening room with a rotating vinyl, moving tonearm, soft lamp animation, and a visible CRT-framed YouTube player.
 - **Mini Mode:** the same player and controls with the decorative room removed. Switching modes preserves playback.
+- Both layouts fit the resized desktop window without page scrolling or clipped controls. Artwork retains its original proportions, video stays 16:9, and Cozy Mode puts the room beside the player in wide, short windows. Long song titles fit one line; hover to read the full title.
 - YouTube video and playlist links, including short, Shorts, live, Music, and timestamped links.
 - Play/pause, seeking, volume, mute, previous/restart, and playlist next. Press **Space** outside an input or focused button to play/pause.
 - Local persistence for your last link, volume/mute, layout, pin state, motion preference, and each layout's window position and size.
@@ -20,8 +21,8 @@ The YouTube player stays visible and unobstructed in both modes. Loading a link 
 
 Open the repository's **Actions → Windows app** page. After a successful run, download the **Haru.fm-Windows** artifact and extract it:
 
-- `Haru.fm-0.1.1-x64-setup.exe`: installer with a desktop shortcut.
-- `Haru.fm-0.1.1-x64-portable.exe`: portable version.
+- `Haru.fm-0.1.2-x64-setup.exe`: installer with a desktop shortcut.
+- `Haru.fm-0.1.2-x64-portable.exe`: portable version.
 
 These development builds are unsigned. Windows may show a publisher/SmartScreen prompt. No certificate or signing credentials are configured in this repository.
 
@@ -58,7 +59,7 @@ npm run check
 npm run dist:win
 ```
 
-`check` runs the parser/preferences/security/static-server tests, builds the renderer, and launches an isolated Electron instance for deterministic UI and native-window checks. Its YouTube test double verifies integration behavior; it does not prove live YouTube audio/video delivery. The Windows workflow runs these checks and packages both download formats.
+`check` runs the parser/preferences/security/static-server tests, builds the renderer, and launches isolated Electron instances for deterministic UI and native-window checks. Responsive checks resize the real window across ten sizes in both modes, including 420×540, long titles, error notices, and 125% display scaling; they verify visible controls, video/artwork proportions, and preserved playback. Its YouTube test double verifies integration behavior; it does not prove live YouTube audio/video delivery. The Windows workflow runs these checks and packages both download formats.
 
 The Windows build is the primary target. The source can run on other desktop platforms with Electron, but macOS/Linux installers and platform-specific acceptance are outside this MVP.
 

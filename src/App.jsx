@@ -100,6 +100,7 @@ export default function App() {
   }
 
   const statusText = { idle: 'READY WHEN YOU ARE', loading: 'CONNECTING', cued: 'PRESS PLAY', playing: 'PLAYING', paused: 'PAUSED', buffering: 'BUFFERING', ended: 'FINISHED', error: 'UNAVAILABLE' }[video.status];
+  const trackTitle = metadata?.title || (source ? source.kind === 'playlist' ? 'YouTube playlist' : 'YouTube video' : 'A little music. A little room.');
 
   return <div className={`app-window ${prefs.mode} ${playing ? 'is-playing' : ''} ${prefs.animations ? '' : 'still'}`}>
     <header className="titlebar">
@@ -111,19 +112,19 @@ export default function App() {
       </div>
     </header>
     <main>
-      {prefs.mode === 'cozy' && <PixelRoom />}
+      {prefs.mode === 'cozy' && <div className="room-space"><PixelRoom /></div>}
       <section className="monitor" aria-label="YouTube playback">
         <div className="monitor-label"><span className="youtube-brand"><Icon name="youtube" size={15} /> YouTube</span><span>{statusText}</span></div>
-        <div className="player-viewport" ref={viewport}>
+        <div className="player-space"><div className="player-viewport" ref={viewport}>
           <div className="player-host" ref={host} />
           {video.status === 'idle' && <div className="empty-player"><RecordMark size={56} /><span>Make yourself at home.</span><p>Paste a YouTube link below to begin.</p></div>}
-        </div>
+        </div></div>
         <div className="monitor-bottom"><span className="speaker-grille" /><span>HARU.FM · STEREO</span><span className={`monitor-led ${playing ? 'lit' : ''}`} /></div>
       </section>
       <section className="transport" aria-label="Playback controls">
         <div className="track-info">
           <div className="track-art">{video.videoId ? <img key={video.videoId} src={`https://i.ytimg.com/vi/${video.videoId}/default.jpg`} alt="" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} /> : <RecordMark size={42} />}</div>
-          <div><span className="eyebrow">{playing ? 'NOW PLAYING' : video.ready ? 'ON THE TURNTABLE' : 'YOUR NEXT GOOD SONG'}</span><h1>{metadata?.title || (source ? source.kind === 'playlist' ? 'YouTube playlist' : 'YouTube video' : 'A little music. A little room.')}</h1><p>{metadata?.author || (video.playlist.length ? `Track ${video.playlistIndex + 1} of ${video.playlist.length}` : 'Powered by YouTube')}</p></div>
+          <div><span className="eyebrow">{playing ? 'NOW PLAYING' : video.ready ? 'ON THE TURNTABLE' : 'YOUR NEXT GOOD SONG'}</span><h1 title={trackTitle}>{trackTitle}</h1><p>{metadata?.author || (video.playlist.length ? `Track ${video.playlistIndex + 1} of ${video.playlist.length}` : 'Powered by YouTube')}</p></div>
           <button className="youtube-link" disabled={!source} onClick={openYouTube} title="Open on YouTube" aria-label="Open current video on YouTube"><Icon name="external" size={17} /></button>
         </div>
         <div className="transport-buttons">
