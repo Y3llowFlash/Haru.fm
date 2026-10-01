@@ -17,7 +17,7 @@ const check = (condition, message) => { assert.ok(condition, message); checks++;
 
 async function expectBackgroundProgress(page, label) {
   const before = await page.evaluate(() => ({ ticks: window.__backgroundTicks, time: window.__fakePlayer.time, displayedTime: document.querySelector('.time-display').textContent, pauses: window.__haruCalls.filter(([type]) => type === 'pause').length, creations: window.__playerCreations }));
-  await page.waitForFunction(previous => window.__backgroundTicks >= previous.ticks + 4 && window.__fakePlayer.time > previous.time && document.querySelector('.time-display').textContent !== previous.displayedTime, before, { timeout: 5000 });
+  await page.waitForFunction(previous => window.__backgroundTicks >= previous.ticks + 4 && window.__fakePlayer.time > previous.time && document.querySelector('.time-display').textContent !== previous.displayedTime, before, { timeout: 5000, polling: 100 });
   const after = await page.evaluate(() => ({ pauses: window.__haruCalls.filter(([type]) => type === 'pause').length, creations: window.__playerCreations, state: window.__fakePlayer.playbackState, frameAlive: window.__fakePlayer.iframe.isConnected, displayedTime: document.querySelector('.time-display').textContent }));
   check(after.state === 1 && after.frameAlive && after.pauses === before.pauses && after.creations === before.creations, `${label}: timers and playback continue on the same player without pause commands`);
 }
@@ -114,9 +114,11 @@ try {
   await app.evaluate(async ({ BrowserWindow }) => {
     const main = BrowserWindow.getAllWindows()[0];
     const bounds = main.getBounds();
-    const cover = new BrowserWindow({ x: bounds.x - 8, y: bounds.y - 8, width: bounds.width + 16, height: bounds.height + 16, frame: false, show: false, alwaysOnTop: true, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
+    const cover = new BrowserWindow({ ...bounds, frame: false, show: false, alwaysOnTop: true, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
     await cover.loadURL('data:text/html,<title>Haru QA cover window</title><body style="background:%23273040;color:white">Another application covering Haru.fm</body>');
-    cover.show(); cover.focus();
+    // Windows clamps oversized initial windows to the display. Match the actual
+    // app bounds rather than adding padding that could leave an uncovered strip.
+    cover.setBounds(bounds); cover.show(); cover.focus();
   });
   const coverage = await app.evaluate(({ BrowserWindow }) => {
     // Electron does not guarantee getAllWindows() ordering or foreground focus.
