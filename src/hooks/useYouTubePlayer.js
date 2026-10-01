@@ -3,7 +3,8 @@ import { loadYouTubeAPI } from '../lib/youtube-api.js';
 import { playerErrorMessage } from '../lib/youtube.js';
 
 const initial = { status: 'idle', ready: false, error: '', videoId: null, currentTime: 0, duration: 0, playlist: [], playlistIndex: -1 };
-const states = { '-1': 'loading', 0: 'ended', 1: 'playing', 2: 'paused', 3: 'buffering', 5: 'cued' };
+// UNSTARTED after a successful cue must not lock the link form as an active load.
+const states = { '-1': 'cued', 0: 'ended', 1: 'playing', 2: 'paused', 3: 'buffering', 5: 'cued' };
 
 export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioChange) {
   const [playback, setPlayback] = useState(initial);

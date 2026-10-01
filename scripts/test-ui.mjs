@@ -68,6 +68,8 @@ try {
   await page.getByRole('slider', { name: 'Volume', exact: true }).press('End');
   await page.waitForFunction(() => !window.__fakePlayer.isMuted() && window.__fakePlayer.getVolume() === 100);
   check(true, 'moving the volume slider makes a muted video audible');
+  await page.evaluate(() => window.__fakePlayer.state(-1));
+  check(await page.getByRole('button', { name: 'Load', exact: true }).isEnabled(), 'an unstarted video leaves Load available for another link');
   await input.fill('https://www.youtube.com/playlist?list=PLabcDEF0123456789');
   await page.getByRole('button', { name: 'Load', exact: true }).click();
   await page.waitForFunction(() => !document.querySelector('[aria-label="Next track"]').disabled);

@@ -62,7 +62,7 @@ npm run dist:win
 
 The Windows build is the primary target. The source can run on other desktop platforms with Electron, but macOS/Linux installers and platform-specific acceptance are outside this MVP.
 
-`npm run test:live` separately attempts real YouTube playback using the example video from the official IFrame API documentation. The Windows workflow records its result in **Haru.fm-Live-YouTube-check**. This external-service check can fail due to runner connectivity, video restrictions, or service availability, so it does not prevent otherwise passing builds from being packaged. Read the JSON report or the workflow step's result; a green packaging run alone does not prove live streaming. Audible sound still needs a check on your own device.
+`npm run test:live` separately attempts real YouTube playback using the example video from the official IFrame API documentation. To attempt this on GitHub, use **Actions → Windows app → Run workflow** and enable **live_check**. The workflow records its result in **Haru.fm-Live-YouTube-check**. It is off for automatic builds because YouTube can block cloud runners with a bot sign-in challenge. This external-service check can fail due to runner connectivity, video restrictions, or service availability, so it does not prevent otherwise passing builds from being packaged. Read the JSON report or the workflow step's result; a green packaging run alone does not prove live streaming. Audible sound still needs a check on your own device.
 
 ## Playback and privacy
 

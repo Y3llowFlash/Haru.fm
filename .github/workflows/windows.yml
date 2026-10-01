@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      live_check:
+        description: Attempt real YouTube playback (cloud runners may be blocked)
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -27,6 +33,7 @@ jobs:
       - name: Check the app and native window controls
         run: npm run check
       - name: Check real YouTube playback (external service)
+        if: github.event_name == 'workflow_dispatch' && inputs.live_check
         continue-on-error: true
         timeout-minutes: 4
         run: npm run test:live
@@ -48,7 +55,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
       - name: Upload live YouTube check report
-        if: always()
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.live_check
         uses: actions/upload-artifact@v4
         with:
           name: Haru.fm-Live-YouTube-check
