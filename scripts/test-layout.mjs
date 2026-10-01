@@ -19,8 +19,9 @@ let nativePerCssPixel = 1;
 
 async function resize(page, width, height) {
   await app.evaluate(({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0].setContentSize(...size), [Math.round(width * nativePerCssPixel), Math.round(height * nativePerCssPixel)]);
-  // Native DIP sizes can round by one CSS pixel at fractional display scales.
-  await page.waitForFunction(([w, h]) => Math.abs(innerWidth - w) <= 1 && Math.abs(innerHeight - h) <= 1, [width, height], { timeout: 5000 }).catch(async error => {
+  // Windows' frameless client edges can round by a few CSS pixels at fractional
+  // display scales. Visibility and aspect checks below use the actual viewport.
+  await page.waitForFunction(([w, h]) => Math.abs(innerWidth - w) <= 3 && Math.abs(innerHeight - h) <= 3, [width, height], { timeout: 5000 }).catch(async error => {
     console.error('Resize geometry:', await page.evaluate(() => ({ width: innerWidth, height: innerHeight, deviceScale: devicePixelRatio })), await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentBounds()));
     throw error;
   });
@@ -45,7 +46,7 @@ async function inspect(page, mode, label) {
   if (mode === 'cozy') assert.ok(geometry.room.height > 0 && Math.abs(geometry.room.width / geometry.room.height - 1.5) < .02, `room remains visible with its original proportions; ${detail}`);
   assert.equal(geometry.playerCreations, 1, `resizing keeps the existing player; ${detail}`);
   checks++;
-  console.log(`PASS ${mode} ${label}: controls visible, player 16:9, no page scrolling`);
+  console.log(`PASS ${mode} ${label} (client ${geometry.width}x${geometry.height}): controls visible, player 16:9, no page scrolling`);
 }
 
 try {
