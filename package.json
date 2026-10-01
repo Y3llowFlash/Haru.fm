@@ -1,0 +1,67 @@
+{
+  "name": "haru-fm",
+  "productName": "Haru.fm",
+  "version": "0.1.0",
+  "description": "A cozy floating desktop music companion powered by YouTube.",
+  "private": true,
+  "type": "module",
+  "main": "desktop/main.cjs",
+  "author": "Haru",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "vite --host 127.0.0.1 --port 5173 --strictPort",
+    "build": "vite build",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm test && npm run build && npm run test:ui",
+    "start": "electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist:win": "npm run build && electron-builder --win --x64",
+    "test:ui": "node scripts/test-ui.mjs"
+  },
+  "dependencies": {
+    "@fontsource/vt323": "5.3.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "electron": "44.5.1",
+    "electron-builder": "26.15.3",
+    "playwright": "1.62.1",
+    "vite": "8.3.1"
+  },
+  "build": {
+    "appId": "fm.haru.desktop",
+    "productName": "Haru.fm",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "desktop/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "public/app.ico",
+      "signAndEditExecutable": true
+    },
+    "portable": {
+      "artifactName": "Haru.fm-${version}-${arch}-portable.exe"
+    },
+    "nsis": {
+      "artifactName": "Haru.fm-${version}-${arch}-setup.exe",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Haru.fm"
+    }
+  }
+}

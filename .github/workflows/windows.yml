@@ -1,0 +1,45 @@
+name: Windows app
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Test and package Haru.fm
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Check the app and native window controls
+        run: npm run check
+      - name: Build Windows installer and portable app
+        run: npx electron-builder --win --x64
+      - name: Upload Windows downloads
+        uses: actions/upload-artifact@v4
+        with:
+          name: Haru.fm-Windows
+          path: release/*.exe
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload UI verification images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Haru.fm-UI-checks
+          path: test-results/*.png
+          if-no-files-found: ignore
+          retention-days: 14
