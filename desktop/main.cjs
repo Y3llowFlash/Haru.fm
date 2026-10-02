@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, session, shell, screen, powerMonitor } = require('electron');
 const path = require('node:path');
 const { createStaticServer } = require('./server.cjs');
+const { createLibraryStore } = require('./library.cjs');
 const { createPreferenceStore } = require('./preferences.cjs');
 const { isTrustedIPC, isSafeYouTubeURL, isDevelopmentURL } = require('./security.cjs');
 
@@ -12,6 +13,13 @@ if (!locked) app.quit();
 let mainWindow;
 let localServer;
 let preferences;
+let library;
+let queuePanelOpen = false;
+const panelWidth = 300;
+function playbackBounds() {
+  const bounds = mainWindow.getBounds();
+  return queuePanelOpen ? { ...bounds, width: Math.max(420, bounds.width - panelWidth) } : bounds;
+}
 let appOrigin;
 let saveTimer;
 let changingMode = false;
@@ -39,7 +47,7 @@ function captureBounds() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isMinimized()) {
-      safeSave({ [`${preferences.get().mode}Bounds`]: mainWindow.getBounds() });
+      safeSave({ [`${preferences.get().mode}Bounds`]: playbackBounds() });
     }
   }, 250);
 }
@@ -55,6 +63,22 @@ function registerIPC() {
       return handler(value);
     });
   }
+  handle('haru:library:get', () => library.get());
+  handle('haru:library:save', value => library.save(value));
+  handle('haru:queue-panel', open => {
+    if (typeof open !== 'boolean') throw new Error('Invalid panel state.');
+    if (open === queuePanelOpen) return open;
+    clearTimeout(saveTimer);
+    const bounds = playbackBounds();
+    changingMode = true;
+    queuePanelOpen = open;
+    mainWindow.setMinimumSize(open ? 720 : 420, 540);
+    const area = screen.getDisplayMatching(bounds).workArea;
+    const width = open ? Math.max(720, Math.min(bounds.width + panelWidth, area.width)) : bounds.width;
+    mainWindow.setBounds({ ...bounds, width, x: Math.max(area.x, Math.min(bounds.x, area.x + area.width - width)) });
+    changingMode = false;
+    return open;
+  });
   handle('haru:preferences:get', () => preferences.get());
   handle('haru:preferences:save', (patch) => {
     const allowed = {};
@@ -76,9 +100,10 @@ function registerIPC() {
     if (!['cozy', 'mini'].includes(mode)) throw new Error('Invalid layout.');
     const previous = preferences.get();
     clearTimeout(saveTimer);
-    const next = safeSave({ mode, [`${previous.mode}Bounds`]: mainWindow.getBounds() });
+    const next = safeSave({ mode, [`${previous.mode}Bounds`]: playbackBounds() });
     changingMode = true;
-    mainWindow.setBounds(fitBounds(mode, next[`${mode}Bounds`]));
+    const bounds = fitBounds(mode, next[`${mode}Bounds`]);
+    mainWindow.setBounds({ ...bounds, width: bounds.width + (queuePanelOpen ? panelWidth : 0) });
     changingMode = false;
     return mode;
   });
@@ -150,7 +175,7 @@ async function createWindow() {
   mainWindow.on('move', captureBounds);
   mainWindow.on('close', () => {
     clearTimeout(saveTimer);
-    if (!mainWindow.isMinimized()) safeSave({ [`${preferences.get().mode}Bounds`]: mainWindow.getBounds() });
+    if (!mainWindow.isMinimized()) safeSave({ [`${preferences.get().mode}Bounds`]: playbackBounds() });
   });
   mainWindow.on('closed', () => { mainWindow = null; app.quit(); });
   mainWindow.once('ready-to-show', () => mainWindow.show());
@@ -163,6 +188,7 @@ if (locked) {
   });
   app.whenReady().then(async () => {
     preferences = createPreferenceStore(path.join(app.getPath('userData'), 'preferences.json'));
+    library = await createLibraryStore(path.join(app.getPath('userData'), 'library.json'));
     registerIPC();
     powerMonitor.on('suspend', () => sendSuspendState(true));
     powerMonitor.on('resume', () => sendSuspendState(false));

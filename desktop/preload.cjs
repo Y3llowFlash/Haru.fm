@@ -2,6 +2,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // A named, narrow bridge. Never expose ipcRenderer, filesystem APIs, or arbitrary channels.
 contextBridge.exposeInMainWorld('haru', Object.freeze({
+  getLibrary: () => ipcRenderer.invoke('haru:library:get'),
+  saveLibrary: (library) => ipcRenderer.invoke('haru:library:save', library),
+  setQueuePanel: (open) => ipcRenderer.invoke('haru:queue-panel', open),
   getPreferences: () => ipcRenderer.invoke('haru:preferences:get'),
   savePreferences: (preferences) => ipcRenderer.invoke('haru:preferences:save', preferences),
   setMode: (mode) => ipcRenderer.invoke('haru:mode', mode),

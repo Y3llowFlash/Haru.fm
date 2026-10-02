@@ -12,6 +12,7 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
   const playerRef = useRef(null);
   const initializationRef = useRef(null);
   const mounted = useRef(true);
+  const playIntent = useRef(0);
   const generation = useRef(0);
   const audioRef = useRef({ volume, muted });
   const onAudioChangeRef = useRef(onAudioChange);
@@ -27,7 +28,7 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
   const pendingPlaylistVideo = useRef(null);
 
   const update = useCallback((patch) => { if (mounted.current) setPlayback((previous) => ({ ...previous, ...patch })); }, []);
-  const pause = useCallback(() => { if (readyRef.current) playerRef.current?.pauseVideo(); }, []);
+  const pause = useCallback(() => { playIntent.current++; if (readyRef.current) playerRef.current?.pauseVideo(); }, []);
 
   const sync = useCallback(() => {
     const player = playerRef.current;
@@ -162,7 +163,8 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
     return initializationRef.current;
   }, [desktop, hostRef, update, sync]);
 
-  const load = useCallback(async (source) => {
+  const load = useCallback(async (source, autoplay = false) => {
+    const intent = ++playIntent.current;
     const request = ++generation.current;
     const previous = cueWaitRef.current;
     if (previous) { clearTimeout(previous.timeout); cueWaitRef.current = null; previous.reject(new Error('A different link was loaded.')); }
@@ -173,7 +175,7 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
     try {
       const player = await ensurePlayer();
       if (request !== generation.current || !mounted.current) return false;
-      return await new Promise((resolve, reject) => {
+      const prepared = await new Promise((resolve, reject) => {
         const pending = { source, resolve, reject, timeout: setTimeout(() => {
           if (cueWaitRef.current === pending) cueWaitRef.current = null;
           reject(new Error('YouTube did not prepare this video or playlist. Check the link and try again.'));
@@ -184,11 +186,13 @@ export function useYouTubePlayer(hostRef, viewportRef, volume, muted, onAudioCha
           else player.cueVideoById({ videoId: source.videoId, startSeconds: source.startSeconds });
         } catch (error) { clearTimeout(pending.timeout); cueWaitRef.current = null; reject(error); }
       });
+      if (prepared && autoplay && request === generation.current && intent === playIntent.current && !suspendedRef.current && (desktop || (visibilityRef.current && !document.hidden))) player.playVideo();
+      return prepared;
     } catch (error) {
       if (request === generation.current) update({ status: 'error', error: error.message, ready: sourceReadyRef.current });
       return false;
     }
-  }, [ensurePlayer, update]);
+  }, [desktop, ensurePlayer, update]);
 
   const play = useCallback(() => {
     if (!readyRef.current || !sourceReadyRef.current || suspendedRef.current || (!desktop && (!visibilityRef.current || document.hidden))) return;

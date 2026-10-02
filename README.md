@@ -10,6 +10,9 @@ A tiny floating music companion for your desktop. Midnight pixel art, warm lamp 
 - Both layouts fit the resized desktop window without page scrolling or clipped controls. Artwork retains its original proportions, video stays 16:9, and Cozy Mode puts the room beside the player in wide, short windows. Long song titles fit one line; hover to read the full title.
 - YouTube video and playlist links, including short, Shorts, live, Music, and timestamped links.
 - Play/pause, seeking, volume, mute, previous/restart, and playlist next. Press **Space** outside an input or focused button to play/pause.
+- **Haru queue:** add individual video links with **Add**, select songs or **Play queue**, move them up/down, choose **Play next**, and remove songs. Next advances automatically when a song ends and stops at the end of the list. Unavailable songs stay marked for Retry or manual Next.
+- **Local playlists:** save named copies of the queue, rename/delete them, replace the queue or append a playlist with independent entries. Queue and playlists survive restart without starting playback. Up to 500 tracks per queue/list and 50 saved playlists.
+- The queue button opens a side panel and widens the desktop window, keeping the YouTube player visible. Mini Mode starts with the panel closed; open it when needed. Closing the panel restores the player window width.
 - Local persistence for your last link, volume/mute, layout, pin state, motion preference, and each layout's window position and size.
 - Audio controls synchronize with YouTube's native volume and mute controls; muting preserves your chosen volume.
 - Playback-linked animations with a motion toggle and support for the system's reduced-motion preference.
@@ -23,8 +26,8 @@ The requested desktop behavior enables background playback. [YouTube's API devel
 
 Open the repository's **Actions → Windows app** page. After a successful run, download the **Haru.fm-Windows** artifact and extract it:
 
-- `Haru.fm-0.1.3-x64-setup.exe`: installer with a desktop shortcut.
-- `Haru.fm-0.1.3-x64-portable.exe`: portable version.
+- `Haru.fm-0.2.0-x64-setup.exe`: installer with a desktop shortcut.
+- `Haru.fm-0.2.0-x64-portable.exe`: portable version.
 
 These development builds are unsigned. Windows may show a publisher/SmartScreen prompt. No certificate or signing credentials are configured in this repository.
 
@@ -61,7 +64,7 @@ npm run check
 npm run dist:win
 ```
 
-`check` runs the parser/preferences/security/static-server tests, builds the renderer, and launches isolated Electron instances for deterministic UI and native-window checks. Background checks cover the app with another native window, minimize via the app button and native window controls, and verify continuing player/renderer timers, playlist advancement, restore behavior, and the separate sleep pause. Responsive checks resize the real window across ten sizes in both modes, including 420×540, long titles, error notices, and 125% display scaling; they verify visible controls, video/artwork proportions, and preserved playback. Its YouTube test double verifies integration behavior; it does not prove live YouTube audio/video delivery. The Windows workflow runs these checks and packages both download formats.
+`check` runs the parser/preferences/security/static-server tests, builds the renderer, and launches isolated Electron instances for deterministic UI and native-window checks. Background checks cover the app with another native window, minimize via the app button and native window controls, and verify continuing player/renderer timers, playlist advancement, restore behavior, and the separate sleep pause. Responsive checks resize the real window across ten sizes in both modes, including 420×540, long titles, error notices, and 125% display scaling; they verify visible controls, video/artwork proportions, and preserved playback. Queue checks exercise edits, automatic next, unavailable songs, playlist operations, minimum expanded layout, and restart persistence. Its YouTube test double verifies integration behavior; it does not prove live YouTube audio/video delivery. The Windows workflow runs these checks and packages both download formats.
 
 The Windows build is the primary target. The source can run on other desktop platforms with Electron, but macOS/Linux installers and platform-specific acceptance are outside this MVP.
 
@@ -71,12 +74,15 @@ The Windows build is the primary target. The source can run on other desktop pla
 
 Haru.fm uses the **official YouTube IFrame Player API**. It does not download videos, extract audio, remove the embedded player, or bypass ads or video restrictions. An internet connection is required, and video owners can prohibit embedding. Search, YouTube account sign-in, downloads, and cloud sync are not included.
 
-No API key is required for this MVP. Links and preferences are saved on your device. The embedded player and thumbnails contact YouTube/Google, and the desktop app requests public video titles/channel names through YouTube's oEmbed endpoint. See [PRIVACY.md](PRIVACY.md).
+YouTube playlist links still work through **Load**. **Add** takes only the individual video from a link, including watch links with a playlist parameter; it does not import the entire YouTube playlist. Removing the current song advances to the following entry (continues if playing); removing the last current song or clearing/replacing the queue pauses playback. Append does not interrupt the current song.
+
+No API key is required for this MVP. Queue entries, playlist names, public titles/channel names, links and preferences are saved on your device. The embedded player and thumbnails contact YouTube/Google, and the desktop app requests public video titles/channel names through YouTube's oEmbed endpoint. See [PRIVACY.md](PRIVACY.md).
 
 ## Project layout
 
 ```text
-desktop/       Native window, validated IPC, preferences, local asset server
+desktop/       Native window, validated IPC, atomic local stores, local asset server
+shared/        Bounded queue/playlist validation and pure editing operations
 src/           React interface and YouTube player lifecycle
 public/art/    Pixel room artwork
 scripts/       Development runner and Electron UI verification
