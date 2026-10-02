@@ -5,29 +5,29 @@ A tiny floating music companion for your desktop. Midnight pixel art, warm lamp 
 ## What it does
 
 - Frameless, draggable, resizable Electron window with an always-on-top pin.
-- **Cozy Mode:** a pixel listening room with a rotating vinyl, moving tonearm, soft lamp animation, and a visible CRT-framed YouTube player.
-- **Mini Mode:** the same player and controls with the decorative room removed. Switching modes preserves playback.
-- Both layouts fit the resized desktop window without page scrolling or clipped controls. Artwork retains its original proportions, video stays 16:9, and Cozy Mode puts the room beside the player in wide, short windows. Long song titles fit one line; hover to read the full title.
+- **Home / Cozy Mode:** the pixel listening room fills the main visual area, with rotating vinyl, a moving tonearm, and a soft lamp animation. The video panel is hidden while its existing embedded player stays mounted.
+- **Normal / Mini Mode:** the visible CRT-framed YouTube player and music controls. Press the **Home icon** to toggle between the large retro room and normal video layout. Switching preserves playback and a deliberate pause.
+- Both layouts fit the resized desktop window without page scrolling or clipped controls. The Home room keeps its 3:2 proportions and normal-mode video stays 16:9. Long song titles fit one line; hover to read the full title.
 - YouTube video and playlist links, including short, Shorts, live, Music, and timestamped links.
 - Play/pause, seeking, volume, mute, previous/restart, and playlist next. Press **Space** outside an input or focused button to play/pause.
 - **Haru queue:** add individual video links with **Add**, select songs or **Play queue**, move them up/down, choose **Play next**, and remove songs. Next advances automatically when a song ends and stops at the end of the list. Unavailable songs stay marked for Retry or manual Next.
 - **Local playlists:** save named copies of the queue, rename/delete them, replace the queue or append a playlist with independent entries. Queue and playlists survive restart without starting playback. Up to 500 tracks per queue/list and 50 saved playlists.
-- The queue button opens a side panel and widens the desktop window, keeping the YouTube player visible. Mini Mode starts with the panel closed; open it when needed. Closing the panel restores the player window width.
+- The queue button opens a side panel and widens the desktop window, keeping the current visual area and controls unobstructed. Mini Mode starts with the panel closed; open it when needed. Closing the panel restores the player window width.
 - Local persistence for your last link, volume/mute, layout, pin state, motion preference, and each layout's window position and size.
 - Audio controls synchronize with YouTube's native volume and mute controls; muting preserves your chosen volume.
 - Playback-linked animations with a motion toggle and support for the system's reduced-motion preference.
 - Actionable errors for unavailable videos and blocked embeds, with **Retry** and **Open on YouTube** controls.
 
-Both layouts show the full, unobstructed YouTube player when the desktop window is open. Loading a link cues it; press Play to begin. Desktop playback now continues when the window is minimized or covered by another window; restoring it keeps the same player and playback position. Deliberately paused playback stays paused on restore. System sleep still pauses playback, waking does not autoplay, and closing the app quits the player. Browser previews retain their pause-on-hidden behavior. Retry reloads the currently submitted source, even if you have typed another link without loading it.
+Normal mode shows the full, unobstructed YouTube player. Home hides the video panel and gives that space to the retro room; press Home again to restore the video. Loading a link cues it; press Play to begin. Desktop playback now continues when the window is minimized or covered by another window; restoring it keeps the same player and playback position. Deliberately paused playback stays paused on restore. System sleep still pauses playback, waking does not autoplay, and closing the app quits the player. Browser previews retain their pause-on-hidden behavior; use normal video mode for browser playback. Retry reloads the currently submitted source, even if you have typed another link without loading it.
 
-The requested desktop behavior enables background playback. [YouTube's API developer policies, section III.I.9](https://developers.google.com/youtube/terms/developer-policies#i.-additional-prohibitions), prohibit background-player features. This behavior is a change from the original visible-player-only design and should not be described as compliant with those terms. The app still uses the unmodified official player and does not bypass restrictions imposed by YouTube itself.
+The requested desktop behavior enables background playback and hides the embedded video in Home mode. [YouTube's API developer policies, section III.I.9](https://developers.google.com/youtube/terms/developer-policies#i.-additional-prohibitions), prohibit background-player features. This behavior is a change from the original visible-player-only design and should not be described as compliant with those terms. The app still uses the unmodified official player and does not bypass restrictions imposed by YouTube itself.
 
 ## Windows download
 
 Open the repository's **Actions → Windows app** page. After a successful run, download the **Haru.fm-Windows** artifact and extract it:
 
-- `Haru.fm-0.2.0-x64-setup.exe`: installer with a desktop shortcut.
-- `Haru.fm-0.2.0-x64-portable.exe`: portable version.
+- `Haru.fm-0.2.1-x64-setup.exe`: installer with a desktop shortcut.
+- `Haru.fm-0.2.1-x64-portable.exe`: portable version.
 
 These development builds are unsigned. Windows may show a publisher/SmartScreen prompt. No certificate or signing credentials are configured in this repository.
 

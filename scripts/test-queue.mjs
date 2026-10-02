@@ -44,11 +44,11 @@ try {
   await page.waitForTimeout(150);
   const geometry = await page.evaluate(() => {
     const rect = selector => document.querySelector(selector).getBoundingClientRect().toJSON();
-    return { width: innerWidth, height: innerHeight, video: rect('.player-viewport'), queue: rect('.queue-panel'), form: rect('.link-form'), footer: rect('footer'), creations: window.__playerCreations };
+    return { width: innerWidth, height: innerHeight, video: rect('.player-viewport'), room: rect('.room'), hidden: document.querySelector('.monitor').hidden, queue: rect('.queue-panel'), form: rect('.link-form'), footer: rect('footer'), creations: window.__playerCreations };
   });
-  assert.ok(geometry.video.height >= 199.9 && Math.abs(geometry.video.width / geometry.video.height - 16 / 9) < .01, JSON.stringify(geometry));
-  assert.ok(geometry.video.right <= geometry.queue.left && geometry.queue.right <= geometry.width && geometry.form.bottom <= geometry.height && geometry.footer.bottom <= geometry.height, JSON.stringify(geometry));
-  assert.equal(geometry.creations, 1); pass('smallest expanded window keeps player visible at 16:9 with same instance');
+  assert.ok(geometry.hidden && geometry.video.height === 0 && geometry.room.height >= 190 && Math.abs(geometry.room.width / geometry.room.height - 1.5) < .01, JSON.stringify(geometry));
+  assert.ok(geometry.room.right <= geometry.queue.left && geometry.queue.right <= geometry.width && geometry.form.bottom <= geometry.height && geometry.footer.bottom <= geometry.height, JSON.stringify(geometry));
+  assert.equal(geometry.creations, 1); pass('smallest expanded Home window shows a large retro room and keeps the same player');
   await mkdir(path.join(root, 'test-results'), { recursive: true }); await page.screenshot({ path: path.join(root, 'test-results/queue-cozy.png') });
   await page.getByRole('button', { name: 'Switch to Mini Mode', exact: true }).click(); await page.waitForSelector('.app-window.mini'); assert.equal(await page.locator('.queue-panel').count(), 0);
   await page.getByRole('button', { name: 'Show queue', exact: true }).click(); await page.waitForSelector('.queue-panel');

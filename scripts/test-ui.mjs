@@ -139,10 +139,28 @@ try {
   });
   await expectBackgroundProgress(page, 'Desktop hidden-visibility event');
   await page.evaluate(() => { delete document.hidden; });
+  check(await page.locator('.monitor').isHidden(), 'Home hides the video panel');
+  check(await page.locator('.room').evaluate(node => node.getBoundingClientRect().height >= 190), 'Home gives the retro room the main visual space');
   await page.screenshot({ path: path.join(screenshots, 'cozy.png'), fullPage: true });
   await page.getByRole('button', { name: 'Switch to Mini Mode', exact: true }).click();
   await page.waitForSelector('.app-window.mini');
   check(await page.locator('.room').count() === 0, 'Mini Mode removes the decorative room');
+  check(await page.locator('.monitor').isVisible(), 'normal mode restores the video panel');
+  const homeState = await page.evaluate(() => ({ time: window.__fakePlayer.time, state: window.__fakePlayer.playbackState, calls: window.__haruCalls.length }));
+  await page.getByRole('button', { name: 'Switch to Cozy Mode', exact: true }).click();
+  await page.waitForSelector('.app-window.cozy');
+  check(await page.locator('.monitor').isHidden() && await page.evaluate(() => window.__playerCreations === 1), 'pressing Home hides video without recreating the player');
+  check(await page.evaluate(before => window.__fakePlayer.playbackState === before.state && window.__fakePlayer.time >= before.time && !window.__haruCalls.slice(before.calls).some(call => ['pause', 'play', 'cueVideo', 'cuePlaylist'].includes(call[0])), homeState), 'Home preserves playback position and sends no playback commands');
+  await page.getByRole('button', { name: 'Switch to Mini Mode', exact: true }).click();
+  await page.waitForSelector('.app-window.mini');
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await page.getByRole('button', { name: 'Switch to Cozy Mode', exact: true }).click();
+  await page.waitForSelector('.app-window.cozy');
+  await page.getByRole('button', { name: 'Switch to Mini Mode', exact: true }).click();
+  await page.waitForSelector('.app-window.mini');
+  check(await page.evaluate(() => window.__fakePlayer.playbackState === 2), 'toggling Home preserves a deliberate pause');
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+
   check(await page.evaluate(() => window.__playerCreations === 1), 'mode changes preserve the existing player');
   const frame = await page.locator('.player-host iframe').boundingBox();
   check(frame.width >= 200 && frame.height >= 200, 'Mini Mode keeps the YouTube viewport at least 200 by 200');

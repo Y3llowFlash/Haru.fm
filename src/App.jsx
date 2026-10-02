@@ -188,13 +188,13 @@ export default function App() {
       <div className="window-actions">
         <button className="window-button queue-toggle" aria-label="Show queue" aria-expanded={queueOpen} title={`Queue · ${library.queue.length} songs`} disabled={!library.ready} onClick={() => showQueue(!queueOpen)}>≡</button>
         <button className="window-button" title={prefs.alwaysOnTop ? 'Unpin window' : 'Always on top'} onClick={pin} aria-label={prefs.alwaysOnTop ? 'Unpin window' : 'Pin window'} aria-pressed={prefs.alwaysOnTop}><Icon name="pin" size={17} /></button>
-        <button className="window-button" title={prefs.mode === 'mini' ? 'Cozy Mode' : 'Mini Mode'} onClick={changeMode} aria-label={prefs.mode === 'mini' ? 'Switch to Cozy Mode' : 'Switch to Mini Mode'}><Icon name={prefs.mode === 'mini' ? 'cozy' : 'mini'} size={17} /></button>
+        <button className="window-button" title={prefs.mode === 'mini' ? 'Home · show retro room' : 'Home · return to video player'} aria-pressed={prefs.mode === 'cozy'} disabled={!preferencesReady} onClick={changeMode} aria-label={prefs.mode === 'mini' ? 'Switch to Cozy Mode' : 'Switch to Mini Mode'}><Icon name="cozy" size={17} /></button>
         {desktop && <><button className="window-button" aria-label="Minimize window" title="Minimize" onClick={() => window.haru.minimize().catch(() => setNotice('Could not minimize the window.'))}><Icon name="minus" size={18} /></button><button className="window-button close-button" aria-label="Close window" title="Close" onClick={() => window.haru.close()}><Icon name="close" size={18} /></button></>}
       </div>
     </header>
     <div className="app-body"><main>
-      {prefs.mode === 'cozy' && <div className="room-space"><PixelRoom /></div>}
-      <section className="monitor" aria-label="YouTube playback">
+      {prefs.mode === 'cozy' && <div className="room-space" aria-label="Retro listening room"><PixelRoom /></div>}
+      <section className="monitor" aria-label="YouTube playback" hidden={prefs.mode === 'cozy'}>
         <div className="monitor-label"><span className="youtube-brand"><Icon name="youtube" size={15} /> YouTube</span><span>{statusText}</span></div>
         <div className="player-space"><div className="player-viewport" ref={viewport}>
           <div className="player-host" ref={host} />

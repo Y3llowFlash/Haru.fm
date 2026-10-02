@@ -31,22 +31,29 @@ async function inspect(page, mode, label) {
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const geometry = await page.evaluate(() => {
     const bounds = (selector) => document.querySelector(selector)?.getBoundingClientRect().toJSON();
-    const selectors = ['.titlebar', '.close-button', '.monitor', '.player-viewport', '.track-info', '.transport-buttons', '.seek', '.time-volume', '.link-form', 'footer'];
+    const selectors = ['.titlebar', '.close-button', '.track-info', '.transport-buttons', '.seek', '.time-volume', '.link-form', 'footer'];
+    if (!document.querySelector('.monitor').hidden) selectors.push('.monitor', '.player-viewport');
     if (document.querySelector('.message')) selectors.push('.message');
-    return { width: innerWidth, height: innerHeight, scrollHeight: document.documentElement.scrollHeight, scrollWidth: document.documentElement.scrollWidth, elements: Object.fromEntries(selectors.map(selector => [selector, bounds(selector)])), room: bounds('.room'), playerCreations: window.__playerCreations };
+    return { width: innerWidth, height: innerHeight, scrollHeight: document.documentElement.scrollHeight, scrollWidth: document.documentElement.scrollWidth, elements: Object.fromEntries(selectors.map(selector => [selector, bounds(selector)])), room: bounds('.room'), videoHidden: document.querySelector('.monitor').hidden && getComputedStyle(document.querySelector('.monitor')).display === 'none', playerCreations: window.__playerCreations };
   });
   const detail = `${mode} ${label}: ${JSON.stringify(geometry)}`;
   assert.ok(geometry.scrollHeight <= geometry.height + 1 && geometry.scrollWidth <= geometry.width + 1, `no document overflow; ${detail}`);
   for (const [name, rect] of Object.entries(geometry.elements)) {
     assert.ok(rect && rect.top >= -1 && rect.left >= -1 && rect.bottom <= geometry.height + 1 && rect.right <= geometry.width + 1, `${name} is fully visible; ${detail}`);
   }
-  const player = geometry.elements['.player-viewport'];
-  assert.ok(player.width >= 199.9 && player.height >= 199.9, `player meets minimum dimensions; ${detail}`);
-  assert.ok(Math.abs(player.width / player.height - 16 / 9) < .01, `player preserves 16:9; ${detail}`);
-  if (mode === 'cozy') assert.ok(geometry.room.height > 0 && Math.abs(geometry.room.width / geometry.room.height - 1.5) < .02, `room remains visible with its original proportions; ${detail}`);
+  if (mode === 'mini') {
+    const player = geometry.elements['.player-viewport'];
+    assert.ok(player.width >= 199.9 && player.height >= 199.9, `player meets minimum dimensions; ${detail}`);
+    assert.ok(Math.abs(player.width / player.height - 16 / 9) < .01, `player preserves 16:9; ${detail}`);
+    assert.equal(geometry.videoHidden, false, `normal mode shows the video; ${detail}`);
+  } else {
+    assert.equal(geometry.videoHidden, true, `Home hides the video panel; ${detail}`);
+    assert.ok(geometry.room.height >= 190 && Math.abs(geometry.room.width / geometry.room.height - 1.5) < .02, `Home keeps a large room at its original proportions; ${detail}`);
+    assert.ok(geometry.room.top >= -1 && geometry.room.bottom <= geometry.height + 1 && geometry.room.right <= geometry.width + 1, `room fits the window; ${detail}`);
+  }
   assert.equal(geometry.playerCreations, 1, `resizing keeps the existing player; ${detail}`);
   checks++;
-  console.log(`PASS ${mode} ${label} (client ${geometry.width}x${geometry.height}): controls visible, player 16:9, no page scrolling`);
+  console.log(`PASS ${mode} ${label} (client ${geometry.width}x${geometry.height}): controls visible, correct visual proportions, no page scrolling`);
 }
 
 try {
